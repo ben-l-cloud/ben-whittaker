@@ -10,6 +10,7 @@ const __dirname = path.dirname(__filename)
 
 const app = express()
 const port = process.env.PORT || 3000
+app.use(express.static("public"))
 
 app.get("/", (req, res) => {
   res.send("🤖 Ben Whittaker Tech Bot is running!")
