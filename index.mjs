@@ -1,10 +1,11 @@
 import "dotenv/config";
 import express from "express";
-import { makeWASocket, useMultiFileAuthState } from "@whiskeysockets/baileys";
+import { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } from "@whiskeysockets/baileys";
 import qrcode from "qrcode";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import P from "pino";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,14 +15,25 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.static(path.join(__dirname, "public")));
 
-// Load media files once
 const connectedAudio = fs.readFileSync(path.join(__dirname, "public", "connected.ogg"));
 const ommyImage = fs.readFileSync(path.join(__dirname, "public", "ommy.png"));
 
+// Load commands
+const commands = new Map();
+const commandsPath = path.join(__dirname, "commands");
+if (fs.existsSync(commandsPath)) {
+  const files = fs.readdirSync(commandsPath);
+  for (const file of files) {
+    if (file.endsWith(".js")) {
+      const cmd = await import(`file://${path.join(commandsPath, file)}`);
+      commands.set(cmd.name, cmd);
+    }
+  }
+}
+
 app.get("/start-session", async (req, res) => {
   const number = req.query.number;
-  const method = req.query.method || "qr"; // Default to QR if method not specified
-
+  const method = req.query.method || "qr";
   if (!number) return res.status(400).json({ error: "Missing number" });
 
   const sessionId = `session-${Date.now()}`;
@@ -29,12 +41,76 @@ app.get("/start-session", async (req, res) => {
   fs.mkdirSync(sessionPath);
 
   const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+  const { version } = await fetchLatestBaileysVersion();
+
   const sock = makeWASocket({
+    version,
+    logger: P({ level: "silent" }),
+    printQRInTerminal: false,
     auth: state,
-    printQRInTerminal: false
+    generateHighQualityLinkPreview: true,
+    markOnlineOnConnect: false,
+    syncFullHistory: false,
   });
 
   sock.ev.on("creds.update", saveCreds);
+
+  // Auto fake typing
+  setInterval(() => {
+    if (sock.user?.id) {
+      sock.sendPresenceUpdate("composing", sock.user.id);
+    }
+  }, 6000);
+
+  // Auto open view once
+  sock.ev.on("messages.upsert", async ({ messages }) => {
+    for (const msg of messages) {
+      if (msg.message?.viewOnceMessageV2) {
+        msg.message = msg.message.viewOnceMessageV2.message;
+        await sock.readMessages([msg.key]);
+      }
+    }
+  });
+
+  // Auto view status
+  sock.ev.on("messages.upsert", async ({ messages }) => {
+    for (const msg of messages) {
+      if (msg.key.remoteJid?.includes("status")) {
+        await sock.readMessages([msg.key]);
+      }
+    }
+  });
+
+  // Anti-link
+  sock.ev.on("messages.upsert", async ({ messages }) => {
+    for (const msg of messages) {
+      const body = msg.message?.conversation || msg.message?.extendedTextMessage?.text;
+      if (body && body.includes("chat.whatsapp.com")) {
+        const jid = msg.key.remoteJid;
+        await sock.sendMessage(jid, {
+          text: `⚠️ Link sharing is not allowed, warning issued.`,
+        });
+      }
+    }
+  });
+
+  // Welcome & goodbye
+  sock.ev.on("group-participants.update", async (update) => {
+    const { id, participants, action } = update;
+    for (const user of participants) {
+      if (action === "add") {
+        await sock.sendMessage(id, {
+          text: `👋 Welcome @${user.split("@")[0]}!`,
+          mentions: [user],
+        });
+      } else if (action === "remove") {
+        await sock.sendMessage(id, {
+          text: `😢 Goodbye @${user.split("@")[0]}!`,
+          mentions: [user],
+        });
+      }
+    }
+  });
 
   if (method === "pairing") {
     try {
@@ -56,11 +132,11 @@ app.get("/start-session", async (req, res) => {
       if (connection === "open") {
         console.log("✅ Session connected");
 
-        // Zip and send session via WhatsApp
         const zipName = `${sessionId}.zip`;
         const outputPath = path.join(__dirname, zipName);
-        const archiver = await import("archiver");
-        const archive = archiver.default("zip", { zlib: { level: 9 } });
+        const { default: archiver } = await import("archiver");
+
+        const archive = archiver("zip", { zlib: { level: 9 } });
         const stream = fs.createWriteStream(outputPath);
 
         archive.pipe(stream);
@@ -72,20 +148,18 @@ app.get("/start-session", async (req, res) => {
           document: fs.readFileSync(outputPath),
           mimetype: "application/zip",
           fileName: "session.zip",
-          caption: "🧾 Hii hapa session yako kwa ajili ya WhatsApp bot. Tumia ipasavyo!"
+          caption: "🧾 Here is your WhatsApp bot session. Use it wisely!",
         });
 
-        // Send voice note connected.ogg
         await sock.sendMessage(jid, {
           audio: connectedAudio,
           mimetype: "audio/ogg",
-          ptt: true
+          ptt: true,
         });
 
-        // Send image ommy.png
         await sock.sendMessage(jid, {
           image: ommyImage,
-          caption: "👋 Karibu kwenye session yako mpya!"
+          caption: "👋 Welcome to your new session!",
         });
 
         setTimeout(() => {
