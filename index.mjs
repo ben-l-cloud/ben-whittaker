@@ -1,13 +1,14 @@
 import "dotenv/config"
 import express from "express"
-import {
+import baileys from "@whiskeysockets/baileys"
+const {
   makeWASocket,
   useMultiFileAuthState,
   makeWALegacySocket,
   fetchLatestBaileysVersion,
   generateRegistrationOptions,
   jidNormalizedUser
-} from "@whiskeysockets/baileys"
+} = baileys
 import qrcode from "qrcode"
 import path from "path"
 import fs from "fs"
