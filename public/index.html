@@ -118,6 +118,7 @@
       color: #ff007f;
       text-decoration: none;
     }
+
   </style>
 </head>
 <body>
@@ -147,7 +148,6 @@
         <button type="submit">Generate Pairing Code</button>
       </form>
       <div id="pairingCode" style="font-size: 1.2rem; margin-top: 20px;"></div>
-      <button onclick="copyCode()">📋 Copy Code</button>
     </div>
 
     <footer>
@@ -172,7 +172,7 @@
       const qrImg = document.getElementById('qrImage');
 
       if (data.qr) {
-        qrImg.src = data.qr.startsWith("data:image") ? data.qr : `data:image/png;base64,${data.qr}`;
+        qrImg.src = data.qr;
         qrImg.style.display = 'block';
       } else {
         alert('Kuna tatizo kwenye QR session.');
@@ -182,11 +182,7 @@
     async function startPairing(e) {
       e.preventDefault();
       const number = document.getElementById('pairNumber').value;
-      const res = await fetch('/generate-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ number })
-      });
+      const res = await fetch(`/pairing-code?number=${number}`);
       const data = await res.json();
       const output = document.getElementById('pairingCode');
 
@@ -195,13 +191,6 @@
       } else {
         output.innerText = '❌ Imeshindikana kupata pairing code.';
       }
-    }
-
-    function copyCode() {
-      const text = document.getElementById('pairingCode').innerText.replace('🔑 Your Pairing Code: ', '');
-      navigator.clipboard.writeText(text).then(() => {
-        alert('✅ Code copied!');
-      });
     }
   </script>
 </body>
