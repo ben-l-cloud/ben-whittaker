@@ -35,9 +35,26 @@
     #qr {
       margin-top: 30px;
     }
+    #ommy-img {
+      width: 150px;
+      border-radius: 50%;
+      margin-bottom: 20px;
+      border: 2px solid #ff007f;
+    }
+    footer {
+      margin-top: 40px;
+      font-size: 0.9rem;
+      color: #aaa;
+    }
+    footer a {
+      color: #ff007f;
+      text-decoration: none;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
+  <img id="ommy-img" src="ommy.png" alt="Ommy Logo" />
   <h1>🤖 Scan WhatsApp QR</h1>
   <p>Ingiza namba yako ya WhatsApp na scan QR code.</p>
 
@@ -49,6 +66,14 @@
   <div id="qr">
     <img id="qrImage" style="display:none; width:300px;"/>
   </div>
+
+  <footer>
+    <p>GitHub Repo: <a href="https://github.com/ben-l-cloud/ben-whittaker.git" target="_blank" rel="noopener noreferrer">ben-whittaker</a></p>
+    <p>Contact: 
+      <a href="https://github.com/ben-l-cloud" target="_blank" rel="noopener noreferrer">GitHub Profile</a> | 
+      <a href="mailto:whittakerben70@gmail.com">whittakerben70@gmail.com</a>
+    </p>
+  </footer>
 
   <script>
     async function startScan(e) {
