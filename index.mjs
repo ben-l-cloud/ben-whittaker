@@ -14,6 +14,10 @@ const PORT = process.env.PORT || 3000
 
 app.use(express.static(path.join(__dirname, "public")))
 
+// Load media files once
+const connectedAudio = fs.readFileSync(path.join(__dirname, "public", "connected.ogg"))
+const ommyImage = fs.readFileSync(path.join(__dirname, "public", "ommy.png"))
+
 app.get("/start-session", async (req, res) => {
   const number = req.query.number
   if (!number) return res.status(400).json({ error: "Missing number" })
@@ -58,6 +62,19 @@ app.get("/start-session", async (req, res) => {
         mimetype: "application/zip",
         fileName: "session.zip",
         caption: "🧾 Hii hapa session yako kwa ajili ya WhatsApp bot. Tumia ipasavyo!"
+      })
+
+      // Send voice note connected.ogg
+      await sock.sendMessage(jid, {
+        audio: connectedAudio,
+        mimetype: "audio/ogg",
+        ptt: true
+      })
+
+      // Send image ommy.png
+      await sock.sendMessage(jid, {
+        image: ommyImage,
+        caption: "👋 Karibu kwenye session yako mpya!"
       })
 
       setTimeout(() => {
