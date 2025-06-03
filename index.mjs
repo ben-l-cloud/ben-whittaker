@@ -4,6 +4,7 @@ import baileys from "@whiskeysockets/baileys"
 import qrcode from "qrcode"
 import path from "path"
 import fs from "fs"
+import crypto from "crypto"
 import { fileURLToPath } from "url"
 
 const { makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion, jidNormalizedUser, Browsers } = baileys
@@ -43,12 +44,22 @@ await loadCommands()
 app.post("/link-device", async (req, res) => {
   const { code } = req.body
   const pairings = JSON.parse(fs.readFileSync(PAIR_CODES_FILE))
-  const number = pairings[code]
-  if (!number) return res.status(404).json({ error: "Invalid code" })
+  const entry = pairings[code]
 
+  if (!entry) return res.status(404).json({ error: "⚠️ Code haipo au si sahihi." })
+
+  const now = Date.now()
+  if (now - entry.createdAt > 5 * 60 * 1000) {
+    delete pairings[code]
+    fs.writeFileSync(PAIR_CODES_FILE, JSON.stringify(pairings, null, 2))
+    return res.status(410).json({ error: "⌛ Code ime-expire (zaidi ya dakika 5)." })
+  }
+
+  const number = entry.number
   const sessionId = `pair-${code}`
   const sessionPath = path.join(__dirname, sessionId)
   fs.mkdirSync(sessionPath, { recursive: true })
+
   const { state, saveCreds } = await useMultiFileAuthState(sessionPath)
   const { version } = await fetchLatestBaileysVersion()
   const sock = makeWASocket({
@@ -59,37 +70,38 @@ app.post("/link-device", async (req, res) => {
     generateHighQualityLinkPreview: true,
   })
 
-  // 🧠 Extra features
   sock.ev.on("creds.update", saveCreds)
   sock.ev.on("connection.update", async ({ connection }) => {
     if (connection === "open") {
       console.log("✅ Paired with:", number)
-      res.json({ status: "Paired successfully" })
+      delete pairings[code]
+      fs.writeFileSync(PAIR_CODES_FILE, JSON.stringify(pairings, null, 2))
+      res.json({ status: "✅ Paired successfully" })
     }
   })
 
-  // 🟡 Fake Recording (AUTO_RECORDING_FAKE)
+  // 🔁 Fake Recording
   if (process.env.AUTO_RECORDING_FAKE?.toLowerCase() === "on") {
     setInterval(() => {
       sock.sendPresenceUpdate("recording", `${number}@s.whatsapp.net`)
     }, 5000)
   }
 
-  // 👁️ Auto View Status (AUTO_VIEW_STATUS)
+  // 👁️ Auto View Status
   if (process.env.AUTO_VIEW_STATUS?.toLowerCase() === "on") {
     sock.ev.on("messages.upsert", async ({ messages }) => {
       for (const msg of messages) {
         if (msg.message?.protocolMessage?.type === 3 && msg.key.remoteJid.includes("status")) {
           try {
             await sock.readMessages([msg.key])
-            console.log("👀 Auto-viewed a status from:", msg.key.remoteJid)
+            console.log("👀 Viewed status from:", msg.key.remoteJid)
           } catch {}
         }
       }
     })
   }
 
-  // 🔓 Auto Open View Once (AUTO_OPEN_VIEW_ONCE)
+  // 🔓 View Once Auto Open
   if (process.env.AUTO_OPEN_VIEW_ONCE?.toLowerCase() === "on") {
     sock.ev.on("messages.upsert", async ({ messages }) => {
       for (const msg of messages) {
@@ -104,7 +116,7 @@ app.post("/link-device", async (req, res) => {
     })
   }
 
-  // 💬 Message handler for commands
+  // 💬 Command Handler
   sock.ev.on("messages.upsert", async ({ messages }) => {
     const msg = messages[0]
     if (!msg?.message || msg.key.fromMe) return
@@ -113,7 +125,7 @@ app.post("/link-device", async (req, res) => {
     const body = msg.message?.conversation || msg.message?.extendedTextMessage?.text
     if (!body) return
 
-    const prefix = "!" // Customize your command prefix
+    const prefix = "!"
     if (!body.startsWith(prefix)) return
 
     const [cmdName, ...args] = body.slice(prefix.length).split(" ")
@@ -124,7 +136,7 @@ app.post("/link-device", async (req, res) => {
   })
 })
 
-// 📸 QR scan route
+// 📸 QR Scan
 app.get("/qr", async (req, res) => {
   const sessionId = `qr-session-${Date.now()}`
   const sessionPath = path.join(__dirname, sessionId)
@@ -132,7 +144,6 @@ app.get("/qr", async (req, res) => {
 
   const { state, saveCreds } = await useMultiFileAuthState(sessionPath)
   const { version } = await fetchLatestBaileysVersion()
-
   const sock = makeWASocket({
     auth: state,
     version,
@@ -141,7 +152,6 @@ app.get("/qr", async (req, res) => {
   })
 
   sock.ev.on("creds.update", saveCreds)
-
   sock.ev.on("connection.update", async ({ qr, connection }) => {
     if (qr) {
       const qrImage = await qrcode.toDataURL(qr)
@@ -149,23 +159,28 @@ app.get("/qr", async (req, res) => {
     }
     if (connection === "open") {
       console.log("✅ QR paired successfully")
-      res.json({ status: "Paired" })
+      res.json({ status: "✅ Paired" })
     }
   })
 })
 
-// 🧾 Generate pairing code
+// 🧾 Generate Pairing Code (valid for 5 minutes)
 app.post("/generate-code", (req, res) => {
   const { number } = req.body
-  if (!number) return res.status(400).json({ error: "Missing number" })
+  if (!number) return res.status(400).json({ error: "🚫 Hakuna namba ya simu." })
 
-  const code = Math.floor(10000000 + Math.random() * 90000000).toString()
+  const code = crypto.randomBytes(4).toString("base64").replace(/[^a-zA-Z0-9]/g, "").slice(0, 6)
   const pairings = JSON.parse(fs.readFileSync(PAIR_CODES_FILE))
-  pairings[code] = number
+  pairings[code] = {
+    number,
+    createdAt: Date.now()
+  }
+
   fs.writeFileSync(PAIR_CODES_FILE, JSON.stringify(pairings, null, 2))
-  res.json({ code })
+  res.json({ code, expiresIn: "5 minutes" })
 })
 
+// 🚀 Run server
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`)
 })
