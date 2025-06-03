@@ -1,137 +1,48 @@
-import "dotenv/config"
-import express from "express"
-import baileys from "@whiskeysockets/baileys"
-const {
-  makeWASocket,
-  useMultiFileAuthState,
-  makeWALegacySocket,
-  fetchLatestBaileysVersion,
-  generateRegistrationOptions,
-  jidNormalizedUser
-} = baileys
-import qrcode from "qrcode"
-import path from "path"
-import fs from "fs"
-import { fileURLToPath } from "url"
+import "dotenv/config" import express from "express" import baileys from "@whiskeysockets/baileys" const { makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion, jidNormalizedUser } = baileys import qrcode from "qrcode" import path from "path" import fs from "fs" import { fileURLToPath } from "url"
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+const __filename = fileURLToPath(import.meta.url) const __dirname = path.dirname(__filename)
 
-const app = express()
-const PORT = process.env.PORT || 3000
+const app = express() const PORT = process.env.PORT || 3000
 
-app.use(express.static(path.join(__dirname, "public")))
+app.use(express.json()) app.use(express.static(path.join(__dirname, "public")))
 
-// Load media
-const connectedAudio = fs.readFileSync(path.join(__dirname, "public", "connected.ogg"))
-const ommyImage = fs.readFileSync(path.join(__dirname, "public", "ommy.png"))
+const connectedAudio = fs.readFileSync(path.join(__dirname, "public", "connected.ogg")) const ommyImage = fs.readFileSync(path.join(__dirname, "public", "ommy.png"))
 
-// QR SESSION
-app.get("/start-session", async (req, res) => {
-  const number = req.query.number
-  if (!number) return res.status(400).json({ error: "Missing number" })
+ const PAIR_CODES_FILE = path.join(__dirname, "pairingCodes.json") if (!fs.existsSync(PAIR_CODES_FILE)) fs.writeFileSync(PAIR_CODES_FILE, JSON.stringify({}))
 
-  const sessionId = `session-${Date.now()}`
-  const sessionPath = path.join(__dirname, sessionId)
-  fs.mkdirSync(sessionPath)
+ app.post("/generate-code", async (req, res) => { const { number } = req.body if (!number) return res.status(400).json({ error: "Missing number" })
 
-  const { state, saveCreds } = await useMultiFileAuthState(sessionPath)
-  const sock = makeWASocket({
-    auth: state,
-    printQRInTerminal: false
-  })
+const code = Math.floor(10000000 + Math.random() * 90000000).toString() const pairings = JSON.parse(fs.readFileSync(PAIR_CODES_FILE)) pairings[code] = number fs.writeFileSync(PAIR_CODES_FILE, JSON.stringify(pairings, null, 2))
 
-  sock.ev.on("creds.update", saveCreds)
+return res.json({ code }) })
 
-  let qrSent = false
-  sock.ev.on("connection.update", async ({ qr, connection }) => {
-    if (qr && !qrSent) {
-      qrSent = true
-      const qrImage = await qrcode.toDataURL(qr)
-      res.json({ qr: qrImage })
-    }
+ app.get("/link-device", async (req, res) => { const { code } = req.query const pairings = JSON.parse(fs.readFileSync(PAIR_CODES_FILE)) const number = pairings[code] if (!number) return res.status(404).json({ error: "Invalid code" })
 
-    if (connection === "open") {
-      console.log("✅ QR Session connected")
-      await sendSessionToUser(sock, number, sessionPath, sessionId)
-    }
-  })
-})
+const sessionId = pair-${code} const sessionPath = path.join(__dirname, sessionId) fs.mkdirSync(sessionPath, { recursive: true })
 
-// PAIRING CODE SESSION
-app.get("/pairing-code", async (req, res) => {
-  const number = req.query.number
-  if (!number) return res.status(400).json({ error: "Missing number" })
+const { state, saveCreds } = await useMultiFileAuthState(sessionPath) const { version } = await fetchLatestBaileysVersion()
 
-  const sessionId = `pairing-${Date.now()}`
-  const sessionPath = path.join(__dirname, sessionId)
-  fs.mkdirSync(sessionPath)
+const sock = makeWASocket({ auth: state, version, printQRInTerminal: false, browser: ['BenWhittakerTech', 'Chrome', '1.0.0'] })
 
-  const { state, saveCreds } = await useMultiFileAuthState(sessionPath)
-  const { version } = await fetchLatestBaileysVersion()
+sock.ev.on("creds.update", saveCreds)
 
-  const sock = makeWASocket({
-    auth: state,
-    version,
-    printQRInTerminal: false,
-    browser: ['BenWhittakerTech', 'Chrome', '1.0.0']
-  })
+sock.ev.on("connection.update", async ({ connection, pairingCode }) => { if (pairingCode) { return res.json({ pairingCode }) } if (connection === "open") { console.log("✅ Pairing complete") await sendSessionToUser(sock, number, sessionPath, sessionId) } })
 
-  sock.ev.on("creds.update", saveCreds)
+await sock.waitForConnectionUpdate(u => u.pairingCode !== undefined) })
 
-  sock.ev.on("connection.update", async ({ connection, pairingCode }) => {
-    if (pairingCode) {
-      return res.json({ pairingCode }) // send pairing code to front-end
-    }
+ async function sendSessionToUser(sock, number, sessionPath, sessionId) { const zipName = ${sessionId}.zip const outputPath = path.join(__dirname, zipName) const archiver = await import("archiver") const archive = archiver.default("zip", { zlib: { level: 9 } }) const stream = fs.createWriteStream(outputPath)
 
-    if (connection === "open") {
-      console.log("✅ Pairing session connected")
-      await sendSessionToUser(sock, number, sessionPath, sessionId)
-    }
-  })
+archive.pipe(stream) archive.directory(sessionPath, false) await archive.finalize()
 
-  await sock.waitForConnectionUpdate(u => u.pairingCode !== undefined)
-})
+const jid = jidNormalizedUser(number)
 
-// Shared function to zip and send session
-async function sendSessionToUser(sock, number, sessionPath, sessionId) {
-  const zipName = `${sessionId}.zip`
-  const outputPath = path.join(__dirname, zipName)
-  const archiver = await import("archiver")
-  const archive = archiver.default("zip", { zlib: { level: 9 } })
-  const stream = fs.createWriteStream(outputPath)
+await sock.sendMessage(jid, { document: fs.readFileSync(outputPath), mimetype: "application/zip", fileName: "session.zip", caption: "🧾 Hii hapa session yako kwa ajili ya WhatsApp bot. Tumia ipasavyo!" })
 
-  archive.pipe(stream)
-  archive.directory(sessionPath, false)
-  await archive.finalize()
+await sock.sendMessage(jid, { audio: connectedAudio, mimetype: "audio/ogg", ptt: true })
 
-  const jid = number + "@s.whatsapp.net"
+await sock.sendMessage(jid, { image: ommyImage, caption: "👋 Karibu kwenye session yako mpya!" })
 
-  await sock.sendMessage(jid, {
-    document: fs.readFileSync(outputPath),
-    mimetype: "application/zip",
-    fileName: "session.zip",
-    caption: "🧾 Hii hapa session yako kwa ajili ya WhatsApp bot. Tumia ipasavyo!"
-  })
+setTimeout(() => { fs.rmSync(sessionPath, { recursive: true, force: true }) fs.unlinkSync(outputPath) process.exit(0) }, 7000) }
 
-  await sock.sendMessage(jid, {
-    audio: connectedAudio,
-    mimetype: "audio/ogg",
-    ptt: true
-  })
+app.listen(PORT, () => { console.log(🚀 Server running at http://localhost:${PORT}) })
 
-  await sock.sendMessage(jid, {
-    image: ommyImage,
-    caption: "👋 Karibu kwenye session yako mpya!"
-  })
-
-  setTimeout(() => {
-    fs.rmSync(sessionPath, { recursive: true, force: true })
-    fs.unlinkSync(outputPath)
-    process.exit(0)
-  }, 5000)
-}
-
-app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`)
-})
