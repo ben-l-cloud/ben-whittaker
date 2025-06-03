@@ -1,0 +1,172 @@
+{
+  "name": "Ben Whittaker Tech Bot",
+  "description": "This is the official Ben Whittaker Tech WhatsApp bot. Make sure to keep it updated for the best experience! 🤖✅",
+  "keywords": [
+    "bot",
+    "node",
+    "baileys",
+    "whatsapp"
+  ],
+  "logo": "https://telegra.ph/file/dcce2ddee6cc7597c859a.jpg",
+  "repository": "https://github.com/BenWhittakerTech/WHITTAKER-BOT",
+  "succes_url": "/",
+  "stack": "container",
+  "env": {
+    "PREFIX": {
+      "description": "Choose your bot's prefix",
+      "value": ".",
+      "required": true
+    },
+    "AUTO_READ_STATUS": {
+      "description": "Your contact status will be read automatically (type 'yes' to activate or 'no' to deactivate; don't write in capital letters)",
+      "value": "yes",
+      "required": false
+    },
+    "GREET": {
+      "description": "When enabled, it automatically sends greeting message to members in your PM",
+      "value": "no",
+      "required": false
+    },
+    "AUTO_LIKE_STATUS": {
+      "description": "Your contact status will be liked automatically (type 'yes' to activate or 'no' to deactivate; don't write in capital letters)",
+      "value": "yes",
+      "required": false
+    },
+    "AUTOBIO": {
+      "description": "Automatically update your bio status. Make sure to set your OWNER_NAME",
+      "value": "yes",
+      "required": false
+    },
+    "CHATBOT": {
+      "description": "When activated, the bot will chat with everyone on your DM",
+      "value": "no",
+      "required": false
+    },
+    "TALKING_BOT": {
+      "description": "Bot will listen to voice notes and respond to them",
+      "value": "no",
+      "required": false
+    },
+    "AUTO_DOWNLOAD_STATUS": {
+      "description": "Your contact status will be downloaded automatically and sent to you (type 'yes' or 'no')",
+      "value": "no",
+      "required": false
+    },
+    "PM_PERMIT": {
+      "description": "Restrict other users from using your bot in private messages (type 'yes' or 'no')",
+      "value": "yes",
+      "required": false
+    },
+    "AUTO_STATUS_MSG": {
+      "description": "Type your genuine status message",
+      "value": "viewed ✅✅",
+      "required": false
+    },
+    "AUTO_STATUS_REPLY": {
+      "description": "Type your genuine status reply message",
+      "value": "no",
+      "required": false
+    },
+    "ANTICALL_MSG": {
+      "description": "Type your anticall message to send when calls are declined. You can leave it blank",
+      "value": "> Ben Whittaker Tech Bot || No calls allowed.",
+      "required": false
+    },
+    "BOT_NAME": {
+      "description": "Change this if you don't like my name",
+      "value": "Ben Whittaker Tech Bot",
+      "required": true 
+    },
+    "GROUP_CONTROL": {
+      "description": "Enable bot group control features like antilink, antispam, antibad",
+      "value": "no",
+      "required": false
+    },
+    "PUBLIC_MODE": {
+      "description": "Set 'yes' to make your bot public or 'no' to keep it private",
+      "value": "yes",
+      "required": false
+    },
+    "HEROKU_API_KEY": {
+      "description": "Insert your Heroku API key (required)",
+      "value": "",
+      "required": true
+    },
+    "HEROKU_APP_NAME": {
+      "description": "Insert your Heroku app name (required)",
+      "value": "",
+      "required": true
+    },
+    "SESSION_ID": {
+      "description": "Enter your session ID after scanning the QR code",
+      "value": "",
+      "required": true
+    },
+    "OWNER_NAME": {
+      "description": "Insert your name here",
+      "value": "Ben Whittaker",
+      "required": true
+    },
+    "URL": {
+      "description": "Change this image and input yours",
+      "value": "https://telegra.ph/file/dcce2ddee6cc7597c859a.jpg",
+      "required": true
+    },
+    "AUTO_READ_MESSAGES": {
+      "description": "yes to activate, no to deactivate",
+      "value": "no",
+      "required": false  
+    },
+    "NUMERO_OWNER": {
+      "description": "Your phone number (exclude '+' and area code, e.g., '254114141192')",
+      "value": "254114141192",
+      "required": false
+    },
+    "WARN_COUNT": {
+      "description": "Set the warning limit for warning commands",
+      "value": "10",
+      "required": false
+    },
+    "STARTING_BOT_MESSAGE": {
+      "description": "Set 'yes' to display a starting bot message or 'no' to disable it",
+      "value": "yes",
+      "required": true
+    },
+    "PRESENCE": {
+      "description": "Mark your presence: 1 for online, 2 for typing, 3 for recording, or leave blank for real state",
+      "value": "",
+      "required": false
+    },
+    "ANTI_DELETE_MESSAGE": {
+      "description": "Enable anti-delete message (set 'yes' or 'no')",
+      "value": "yes",
+      "required": false
+    },
+    "ANTICALL": {
+      "description": "Automatically decline incoming calls (set 'yes' or 'no')",
+      "value": "yes",
+      "required": false
+    },
+    "AUTO_BLOCK": {
+      "description": "Automatically block users who insult you in DM (set 'yes' or 'no')",
+      "value": "yes",
+      "required": false
+    },
+    "AUTO_REACTION": {
+      "description": "Enable bot reactions to messages in private chats (set 'yes' or 'no')",
+      "value": "no",
+      "required": false
+    }
+  },
+  "formation": {
+    "worker": {
+      "quantity": 1,
+      "size": "standard-2x"
+    }
+  },
+  "addons": [
+    {
+      "plan": "heroku-postgresql:essential-0"
+    }
+  ]
+}
