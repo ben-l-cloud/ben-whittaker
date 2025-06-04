@@ -6,6 +6,44 @@ const path = require('path')
 const express = require('express')
 require('dotenv').config()
 
+const got = require('got')
+const ffmpeg = require('fluent-ffmpeg')
+const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg')
+const { PassThrough } = require('stream')
+
+ffmpeg.setFfmpegPath(ffmpegInstaller.path)
+
+async function gifUrlToMp4Buffer(gifUrl) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await got.stream(gifUrl)
+      const chunks = []
+      const streamPass = new PassThrough()
+
+      ffmpeg(response)
+        .inputFormat('gif')
+        .outputOptions([
+          '-movflags frag_keyframe+empty_moov',
+          '-pix_fmt yuv420p',
+          '-vf scale=320:-2',
+          '-c:v libx264',
+          '-profile:v baseline',
+          '-level 3.0',
+          '-an',
+          '-f mp4'
+        ])
+        .format('mp4')
+        .on('error', (err) => reject(err))
+        .pipe(streamPass)
+
+      streamPass.on('data', (chunk) => chunks.push(chunk))
+      streamPass.on('end', () => resolve(Buffer.concat(chunks)))
+    } catch (error) {
+      reject(error)
+    }
+  })
+}
+
 const OWNER_NUMBER = process.env.OWNER_NUMBER || '255654478605'
 let MODE = process.env.MODE || 'private'
 const PREFIX = '$'
@@ -56,6 +94,8 @@ for (const file of commandFiles) {
     commands.set(command.name, command)
   }
 }
+
+const media = require('./media.json') // Make sure this file exists and has the GIF URLs
 
 const startSock = async () => {
   const { state, saveCreds } = await useMultiFileAuthState('auth')
@@ -127,11 +167,11 @@ const startSock = async () => {
       return await sock.sendMessage(from, { text: '🚫 This bot is private. Tafuta yako 👎' })
     }
 
-    // Execute loaded commands
     if (body.startsWith(PREFIX)) {
       const args = body.slice(PREFIX.length).trim().split(/ +/)
       const commandName = args.shift().toLowerCase()
       const command = commands.get(commandName)
+
       if (command) {
         try {
           await command.execute(sock, msg, args, from, sender)
@@ -139,6 +179,22 @@ const startSock = async () => {
           console.error(err)
           await sock.sendMessage(from, { text: '⚠️ Error executing command.' })
         }
+      } else {
+        // Mfano wa command ya hug inayo-convert GIF URL kwenda MP4 video na kutuma
+        if (commandName === 'hug') {
+          try {
+            const mp4Buffer = await gifUrlToMp4Buffer(media.hug)
+            await sock.sendMessage(from, {
+              video: mp4Buffer,
+              mimetype: 'video/mp4',
+              caption: '🤗 Hii ni hug video!'
+            })
+          } catch (error) {
+            console.error('Error sending hug video:', error)
+            await sock.sendMessage(from, { text: '❌ Tatizo la kutuma hug video.' })
+          }
+        }
+        // Ongeza commands nyingine kama unavyotaka kwa mfano huu
       }
     }
   })
