@@ -1,7 +1,48 @@
 services:
   - type: web
-    name: ben-whittaker-tech
+    name: ben-whittaker-tech-bot
     env: node
-    plan: free
+    region: oregon  # Badilisha ukitaka region nyingine kama singapore, ireland, etc
+    branch: main    # au master, kulingana na branch yako
+    repo: https://github.com/ben-l-cloud/ben-whittaker.git
     buildCommand: npm install
-    startCommand: node index.mjs
+    startCommand: node index.js
+    envVars:
+      - key: OWNER_NUMBER
+        value: "255654478605"
+      - key: MODE
+        value: "private"
+      - key: PREFIX
+        value: "$"
+      - key: AUTO_TYPING
+        value: "off"
+      - key: AUTO_REACT
+        value: "off"
+      - key: AUTO_BIO
+        value: "off"
+      - key: FAKE_RECORDING
+        value: "off"
+      - key: AUTO_VIEW_ONCE
+        value: "on"
+      - key: ANTI_BAD
+        value: "on"
+      - key: ANTI_LINK
+        value: "on"
+      - key: NSFW
+        value: "off"
+      - key: AI_CHAT
+        value: "on"
+      - key: VOICE_AI
+        value: "off"
+      - key: IMAGE_GEN
+        value: "on"
+      - key: STICKER_CMD
+        value: "on"
+      - key: YT_MUSIC
+        value: "on"
+      - key: PDF_TOOLS
+        value: "on"
+      - key: OWNER_ONLY_MODE
+        value: "off"
+      - key: MENU_ENABLED
+        value: "on"
