@@ -1,20 +1,22 @@
+
+// ==== commands/love.js ====
 const { gifUrlToMp4Buffer } = require('../lib/media-utils');
+const media = require('../media/media.json');
 
 module.exports = {
   name: 'love',
-  description: '❤️ Tuma love',
+  description: '❤️ Tuma upendo kama video',
   category: 'fun',
-  async execute(sock, msg, args) {
-    const gifUrl = 'https://media.giphy.com/media/od5H3PmEG5EVq/giphy.gif';
+  async execute(m, client) {
     try {
-      const mp4Buffer = await gifUrlToMp4Buffer(gifUrl);
-      await sock.sendMessage(msg.key.remoteJid, {
+      const mp4Buffer = await gifUrlToMp4Buffer(media.love);
+      await client.sendMessage(m.chat, {
         video: mp4Buffer,
         mimetype: 'video/mp4',
-        caption: '❤️ Nakupenda sana!'
-      });
-    } catch {
-      await sock.sendMessage(msg.key.remoteJid, { text: '❌ Imeshindikana kutuma love.' });
+        caption: '❤️ Love vibes!'
+      }, { quoted: m });
+    } catch (error) {
+      await client.sendMessage(m.chat, { text: '⚠️ Love haikuweza kutumwa.' }, { quoted: m });
     }
   }
 };
