@@ -8,7 +8,7 @@ require('dotenv').config()
 
 const OWNER_NUMBER = process.env.OWNER_NUMBER || '255654478605'
 let MODE = process.env.MODE || 'private'
-const PREFIX = '$'  // Prefix ya commands
+const PREFIX = '$'
 
 const CONFIG = {
   AUTO_TYPING: process.env.AUTO_TYPING === 'on',
@@ -47,6 +47,16 @@ app.listen(port, () => {
   console.log(`Express server running on port ${port}`)
 })
 
+// Load all command modules from /commands
+const commands = new Map()
+const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'))
+for (const file of commandFiles) {
+  const command = require(`./commands/${file}`)
+  if (command.name && typeof command.execute === 'function') {
+    commands.set(command.name, command)
+  }
+}
+
 const startSock = async () => {
   const { state, saveCreds } = await useMultiFileAuthState('auth')
   const { version } = await fetchLatestBaileysVersion()
@@ -62,17 +72,14 @@ const startSock = async () => {
 
   sock.ev.on('creds.update', saveCreds)
 
-  // Auto view once + notify owner
   sock.ev.on('messages.update', async (m) => {
     for (const msg of m) {
       try {
         if (msg.message?.viewOnceMessage && CONFIG.AUTO_VIEW_ONCE) {
           await sock.readMessages([msg.key])
-
           const viewer = msg.key.participant || msg.key.remoteJid
           const viewerName = viewer.split('@')[0]
           const ownerJid = OWNER_NUMBER + '@s.whatsapp.net'
-
           await sock.sendMessage(ownerJid, { text: `📢 User @${viewerName} ame-view status yako.` })
         }
       } catch (error) {
@@ -116,43 +123,24 @@ const startSock = async () => {
       return
     }
 
-    // Command handler
-    if (body.startsWith(PREFIX + 'setmode') && isOwner) {
-      const newMode = body.split(' ')[1]
-      if (newMode === 'private' || newMode === 'public') {
-        MODE = newMode
-        settings.mode = MODE
-        saveSettings()
-        await sock.sendMessage(from, { text: `✅ Mode imebadilika kuwa *${MODE}*` })
-      }
-      return
-    }
-
-    if (body.startsWith(PREFIX + 'antilink') && isOwner) {
-      const arg = body.split(' ')[1]
-      if (arg === 'on' || arg === 'off') {
-        settings.antilink = arg === 'on'
-        saveSettings()
-        await sock.sendMessage(from, { text: `⚙️ Antilink imewekwa kuwa *${arg}*` })
-      }
-      return
-    }
-
-    if (body.startsWith(PREFIX + 'nsfw') && isOwner) {
-      const arg = body.split(' ')[1]
-      if (arg === 'on' || arg === 'off') {
-        settings.nsfw = arg === 'on'
-        saveSettings()
-        await sock.sendMessage(from, { text: `⚙️ NSFW blocker imewekwa kuwa *${arg}*` })
-      }
-      return
-    }
-
     if (settings.mode === 'private' && !isOwner) {
       return await sock.sendMessage(from, { text: '🚫 This bot is private. Tafuta yako 👎' })
     }
 
-    // Other command handling ...
+    // Execute loaded commands
+    if (body.startsWith(PREFIX)) {
+      const args = body.slice(PREFIX.length).trim().split(/ +/)
+      const commandName = args.shift().toLowerCase()
+      const command = commands.get(commandName)
+      if (command) {
+        try {
+          await command.execute(sock, msg, args, from, sender)
+        } catch (err) {
+          console.error(err)
+          await sock.sendMessage(from, { text: '⚠️ Error executing command.' })
+        }
+      }
+    }
   })
 
   sock.ev.on('connection.update', (update) => {
