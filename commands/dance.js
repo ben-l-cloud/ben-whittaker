@@ -1,20 +1,21 @@
+// ==== commands/dance.js ====
 const { gifUrlToMp4Buffer } = require('../lib/media-utils');
+const media = require('../media/media.json');
 
 module.exports = {
   name: 'dance',
-  description: '💃 Tuma dance',
+  description: '💃 Cheza densi!',
   category: 'fun',
-  async execute(sock, msg, args) {
-    const gifUrl = 'https://media.giphy.com/media/3o7aD4dH0a1H9w5NQk/giphy.gif';
+  async execute(m, client) {
     try {
-      const mp4Buffer = await gifUrlToMp4Buffer(gifUrl);
-      await sock.sendMessage(msg.key.remoteJid, {
+      const mp4Buffer = await gifUrlToMp4Buffer(media.dance);
+      await client.sendMessage(m.chat, {
         video: mp4Buffer,
         mimetype: 'video/mp4',
-        caption: '💃 Cheza kama wewe!'
-      });
-    } catch {
-      await sock.sendMessage(msg.key.remoteJid, { text: '❌ Imeshindikana kutuma dance.' });
+        caption: '💃 Dance time!'
+      }, { quoted: m });
+    } catch (error) {
+      await client.sendMessage(m.chat, { text: '⚠️ Dance haikuweza kutumwa.' }, { quoted: m });
     }
   }
 };
