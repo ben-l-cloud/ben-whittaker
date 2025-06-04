@@ -1,20 +1,21 @@
+// ==== commands/slap.js ====
 const { gifUrlToMp4Buffer } = require('../lib/media-utils');
+const media = require('../media/media.json');
 
 module.exports = {
   name: 'slap',
-  description: '👋 Tuma kofi',
+  description: '🖐️ Slap mtu!',
   category: 'fun',
-  async execute(sock, msg, args) {
-    const gifUrl = 'https://media.giphy.com/media/jLeyZWgtwgr2U/giphy.gif';
+  async execute(m, client) {
     try {
-      const mp4Buffer = await gifUrlToMp4Buffer(gifUrl);
-      await sock.sendMessage(msg.key.remoteJid, {
+      const mp4Buffer = await gifUrlToMp4Buffer(media.slap);
+      await client.sendMessage(m.chat, {
         video: mp4Buffer,
         mimetype: 'video/mp4',
-        caption: '👋 Makofi mazito hayo!'
-      });
-    } catch {
-      await sock.sendMessage(msg.key.remoteJid, { text: '❌ Imeshindikana kutuma slap.' });
+        caption: '🖐️ Slap!'
+      }, { quoted: m });
+    } catch (error) {
+      await client.sendMessage(m.chat, { text: '⚠️ Slap haikuweza kutumwa.' }, { quoted: m });
     }
   }
 };
