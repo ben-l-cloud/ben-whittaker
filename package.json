@@ -1,15 +1,13 @@
 {
-  "name": "ben-whittaker-tech",
+  "name": "ben-whittaker",
   "version": "2.0.0",
-  "description": "Ben Whittaker Tech WhatsApp Bot with 200+ powerful features built on Baileys",
-  "main": "kingbeltah.js",
+  "description": "Ben Whittaker WhatsApp Bot with 200+ powerful features built on Baileys",
+  "main": "index.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node kingbeltah.js",
-    "s": "node kingbeltah.js",
-    "ben": "pm2 start kingbeltah.js --attach --max-memory-restart 490M",
-    "bwt": "pm2 start beltahmd.js --attach",
-    "c": "tsc"
+    "start": "node index.js",
+    "s": "node index.js",
+    "ben": "pm2 start index.js --attach --max-memory-restart 490M"
   },
   "keywords": [
     "ben-whittaker",
@@ -18,7 +16,7 @@
     "WhatsApp",
     "nodejs",
     "ai-bot",
-    "ben-whittaker-tech"
+    "ben-whittaker"
   ],
   "author": "Ben Whittaker",
   "license": "ISC",
