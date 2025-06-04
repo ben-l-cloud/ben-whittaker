@@ -1,20 +1,21 @@
+// ==== commands/hug.js ====
 const { gifUrlToMp4Buffer } = require('../lib/media-utils');
+const media = require('../media/media.json');
 
 module.exports = {
   name: 'hug',
-  description: '🤗 Tuma hug',
+  description: '🤗 Tuma hug kama video',
   category: 'fun',
-  async execute(sock, msg, args) {
-    const gifUrl = 'https://media.giphy.com/media/l2QDM9Jnim1YVILXa/giphy.gif';
+  async execute(m, client) {
     try {
-      const mp4Buffer = await gifUrlToMp4Buffer(gifUrl);
-      await sock.sendMessage(msg.key.remoteJid, {
+      const mp4Buffer = await gifUrlToMp4Buffer(media.hug);
+      await client.sendMessage(m.chat, {
         video: mp4Buffer,
         mimetype: 'video/mp4',
-        caption: '🤗 Kukumbatiana ni vizuri!'
-      });
-    } catch {
-      await sock.sendMessage(msg.key.remoteJid, { text: '❌ Imeshindikana kutuma hug.' });
+        caption: '🤗 Hug!'
+      }, { quoted: m });
+    } catch (error) {
+      await client.sendMessage(m.chat, { text: '⚠️ Hug imeshindikana.' }, { quoted: m });
     }
   }
 };
