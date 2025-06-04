@@ -1,20 +1,21 @@
+// ==== commands/happy.js ====
 const { gifUrlToMp4Buffer } = require('../lib/media-utils');
+const media = require('../media/media.json');
 
 module.exports = {
   name: 'happy',
-  description: '😄 Tuma furaha',
+  description: '😊 Furahia maisha',
   category: 'fun',
-  async execute(sock, msg, args) {
-    const gifUrl = 'https://media.giphy.com/media/111ebonMs90YLu/giphy.gif';
+  async execute(m, client) {
     try {
-      const mp4Buffer = await gifUrlToMp4Buffer(gifUrl);
-      await sock.sendMessage(msg.key.remoteJid, {
+      const mp4Buffer = await gifUrlToMp4Buffer(media.happy);
+      await client.sendMessage(m.chat, {
         video: mp4Buffer,
         mimetype: 'video/mp4',
-        caption: '😄 Nimefurahi sana!'
-      });
-    } catch {
-      await sock.sendMessage(msg.key.remoteJid, { text: '❌ Imeshindikana kutuma happy.' });
+        caption: '😊 Be happy!'
+      }, { quoted: m });
+    } catch (error) {
+      await client.sendMessage(m.chat, { text: '⚠️ Happy haikuweza kutumwa.' }, { quoted: m });
     }
   }
 };
