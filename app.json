@@ -1,1 +1,93 @@
-
+{
+  "name": "ben-whittaker-tech-bot",
+  "description": "WhatsApp Bot by Ben Whittaker Tech",
+  "repository": "https://github.com/ben-l-cloud/ben-whittaker.git",
+  "logo": "https://raw.githubusercontent.com/ben-l-cloud/ben-whittaker/main/logo.png",
+  "keywords": ["whatsapp", "bot", "baileys", "nodejs", "chatbot"],
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "env": {
+    "OWNER_NUMBER": {
+      "description": "Number of the bot owner in international format without plus",
+      "value": "255654478605"
+    },
+    "MODE": {
+      "description": "Mode of the bot - public or private",
+      "value": "private"
+    },
+    "PREFIX": {
+      "description": "Command prefix for the bot",
+      "value": "$"
+    },
+    "AUTO_TYPING": {
+      "description": "Auto typing indicator (on/off)",
+      "value": "off"
+    },
+    "AUTO_REACT": {
+      "description": "Auto react to messages (on/off)",
+      "value": "off"
+    },
+    "AUTO_BIO": {
+      "description": "Auto update bio (on/off)",
+      "value": "off"
+    },
+    "FAKE_RECORDING": {
+      "description": "Fake recording status (on/off)",
+      "value": "off"
+    },
+    "AUTO_VIEW_ONCE": {
+      "description": "Auto view once message (on/off)",
+      "value": "on"
+    },
+    "ANTI_BAD": {
+      "description": "Anti bad word filter (on/off)",
+      "value": "on"
+    },
+    "ANTI_LINK": {
+      "description": "Anti link filter (on/off)",
+      "value": "on"
+    },
+    "NSFW": {
+      "description": "Allow NSFW content (on/off)",
+      "value": "off"
+    },
+    "AI_CHAT": {
+      "description": "Enable AI chat features (on/off)",
+      "value": "on"
+    },
+    "VOICE_AI": {
+      "description": "Enable voice AI features (on/off)",
+      "value": "off"
+    },
+    "IMAGE_GEN": {
+      "description": "Enable image generation features (on/off)",
+      "value": "on"
+    },
+    "STICKER_CMD": {
+      "description": "Enable sticker commands (on/off)",
+      "value": "on"
+    },
+    "YT_MUSIC": {
+      "description": "Enable YouTube music commands (on/off)",
+      "value": "on"
+    },
+    "PDF_TOOLS": {
+      "description": "Enable PDF tools (on/off)",
+      "value": "on"
+    },
+    "OWNER_ONLY_MODE": {
+      "description": "Enable owner only mode (on/off)",
+      "value": "off"
+    },
+    "MENU_ENABLED": {
+      "description": "Enable menu command (on/off)",
+      "value": "on"
+    }
+  },
+  "scripts": {
+    "start": "node index.js"
+  }
+}
