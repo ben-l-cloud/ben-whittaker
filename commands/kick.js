@@ -1,42 +1,34 @@
-const fs = require("fs");
-const path = require("path");
-
 module.exports = {
   name: "kick",
-  description: "Send a kick video (kick.mp4) with auto-react 👢",
+  description: "Remove a member from the group",
   async execute(sock, msg, args) {
-    const jid = msg.key.remoteJid;
+    const { fromMe, key, message, participant } = msg;
+    const jid = key.remoteJid;
+    const isGroup = jid.endsWith("@g.us");
 
-    // ✅ Step 1: React to the command message
-    try {
-      await sock.sendMessage(jid, {
-        react: {
-          text: "👢",
-          key: msg.key,
-        },
-      });
-    } catch (e) {
-      console.log("Auto-react failed:", e.message);
+    if (!isGroup) return await sock.sendMessage(jid, { text: "🚫 This command only works in groups." });
+
+    const groupMetadata = await sock.groupMetadata(jid);
+    const sender = msg.participant || msg.key.participant;
+
+    const admins = groupMetadata.participants.filter(p => p.admin).map(p => p.id);
+    const isAdmin = admins.includes(sender);
+    const isBotAdmin = admins.includes(sock.user.id.split(":")[0] + "@s.whatsapp.net");
+
+    if (!isAdmin) return await sock.sendMessage(jid, { text: "🚫 You must be admin to use this command." });
+    if (!isBotAdmin) return await sock.sendMessage(jid, { text: "🤖 I need admin rights to perform this action." });
+
+    let target;
+    if (msg.message.extendedTextMessage?.contextInfo?.participant) {
+      target = msg.message.extendedTextMessage.contextInfo.participant;
+    } else if (args[0]?.includes("@")) {
+      target = args[0].replace(/[^0-9]/g, "") + "@s.whatsapp.net";
     }
 
-    // ✅ Step 2: Load media path from media.json
-    const mediaData = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "media", "media.json")));
-    const videoPath = path.join(__dirname, "..", "media", mediaData.kick || "kick.mp4");
+    if (!target) return await sock.sendMessage(jid, { text: "⚠️ Mention or reply to someone to kick." });
 
-    // ✅ Step 3: Check and send video
-    if (!fs.existsSync(videoPath)) {
-      return await sock.sendMessage(jid, {
-        text: "❌ Kick video not found in media folder!",
-      }, { quoted: msg });
-    }
-
-    const videoBuffer = fs.readFileSync(videoPath);
-
-    // ✅ Step 4: Send video as gif playback
-    await sock.sendMessage(jid, {
-      video: videoBuffer,
-      gifPlayback: true,
-      caption: "👢 Boom! Kicked successfully!",
-    }, { quoted: msg });
+    await sock.sendMessage(jid, { text: "🔄 Kicking user..." });
+    await sock.groupParticipantsUpdate(jid, [target], "remove");
+    await sock.sendMessage(jid, { text: `👢 User removed successfully.` });
   },
 };
