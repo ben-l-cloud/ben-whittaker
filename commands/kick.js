@@ -1,4 +1,6 @@
 const fs = require("fs");
+const path = require("path");
+
 const media = JSON.parse(fs.readFileSync("./media/media.json"));
 
 module.exports = {
@@ -22,11 +24,18 @@ module.exports = {
 
     await sock.sendMessage(jid, { text: "👢 Kicking user..." });
 
+    const filePath = path.resolve(media.kick);
+    if (!fs.existsSync(filePath)) {
+      await sock.sendMessage(jid, { text: "⚠️ Kick video not found!" });
+      return;
+    }
+
     await sock.sendMessage(jid, {
-      video: fs.readFileSync(media.kick),
+      video: fs.readFileSync(filePath),
       gifPlayback: true,
       caption: `🥾 *That must have hurt!*`,
       mentions: [target],
+      mimetype: "video/mp4"
     });
   },
 };
