@@ -1,3 +1,12 @@
 {
-  "kick": "kick.mp4"
+  "hug": "media/hug.mp4",
+  "slap": "media/slap.mp4",
+  "kiss": "media/kiss.mp4",
+  "kick": "media/kick.mp4",
+  "kill": "media/kill.mp4",
+  "pat": "media/pat.mp4",
+  "punch": "media/punch.mp4",
+  "wave": "media/wave.mp4",
+  "cry": "media/cry.mp4",
+  "laugh": "media/laugh.mp4"
 }
