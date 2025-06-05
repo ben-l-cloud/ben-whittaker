@@ -49,6 +49,3 @@ module.exports = {
         { text: "❌ AI Error: Samahani, jaribu tena baadae." },
         { quoted: msg }
       );
-    }
-  }
-};
