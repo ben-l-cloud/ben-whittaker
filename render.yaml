@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: ben-whittaker-tech-bot
+    name: ben-I-cloud
     env: node
     region: oregon  # Badilisha ukitaka region nyingine kama singapore, ireland, etc
     branch: main    # au master, kulingana na branch yako
