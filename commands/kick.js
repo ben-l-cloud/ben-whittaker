@@ -1,13 +1,13 @@
-const path = require("path");
 const fs = require("fs");
+const path = require("path");
 
 module.exports = {
   name: "kick",
-  description: "Send a kick GIF/video with auto react",
+  description: "Send a kick video (kick.mp4) with auto-react 👢",
   async execute(sock, msg, args) {
     const jid = msg.key.remoteJid;
 
-    // Auto react with 👢 emoji (reacting to the message itself)
+    // ✅ Step 1: React to the command message
     try {
       await sock.sendMessage(jid, {
         react: {
@@ -16,22 +16,27 @@ module.exports = {
         },
       });
     } catch (e) {
-      console.log("React error:", e.message);
+      console.log("Auto-react failed:", e.message);
     }
 
-    // Path to kick.gif in media folder
-    const gifPath = path.join(__dirname, "..", "media", "kick.gif");
-    if (!fs.existsSync(gifPath)) {
-      return await sock.sendMessage(jid, { text: "❌ Kick media not found!" });
+    // ✅ Step 2: Load media path from media.json
+    const mediaData = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "media", "media.json")));
+    const videoPath = path.join(__dirname, "..", "media", mediaData.kick || "kick.mp4");
+
+    // ✅ Step 3: Check and send video
+    if (!fs.existsSync(videoPath)) {
+      return await sock.sendMessage(jid, {
+        text: "❌ Kick video not found in media folder!",
+      }, { quoted: msg });
     }
 
-    const gifBuffer = fs.readFileSync(gifPath);
+    const videoBuffer = fs.readFileSync(videoPath);
 
-    // Send the GIF as a video with caption; no mention needed even if reply
+    // ✅ Step 4: Send video as gif playback
     await sock.sendMessage(jid, {
-      video: gifBuffer,
+      video: videoBuffer,
       gifPlayback: true,
-      caption: "👢 Kicking action!",
+      caption: "👢 Boom! Kicked successfully!",
     }, { quoted: msg });
   },
 };
