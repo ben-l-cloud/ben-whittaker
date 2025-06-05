@@ -1,5 +1,11 @@
-// ✅ BEN WHITTAKER TECH - WhatsApp Bot (index.js)
+// ✅ BEN WHITTAKER TECH - WhatsApp Bot
+
 const express = require("express");
+const app = express();
+const PORT = process.env.PORT || 3000;
+app.get("/", (req, res) => res.send("🤖 BEN WHITTAKER TECH BOT is running!"));
+app.listen(PORT, () => console.log(`✅ Express running on port ${PORT}`));
+
 const fs = require("fs");
 const path = require("path");
 const P = require("pino");
@@ -15,30 +21,16 @@ const {
   downloadContentFromMessage
 } = require("@whiskeysockets/baileys");
 
-// ✅ Express Web Server
-const app = express();
-const PORT = process.env.PORT || 3000;
-app.get("/", (req, res) => res.send("🤖 BEN WHITTAKER TECH BOT is running!"));
-app.listen(PORT, () => console.log(`✅ Express running on port ${PORT}`));
-
-// ⚙️ BOT SETTINGS
 const OWNER_JID = "255654478605@s.whatsapp.net";
 const PREFIX = "😁";
 const antiLinkGroups = {};
 const emojiReactions = ["❤️", "😂", "🔥", "👍", "😎", "🤖"];
 const randomEmoji = () => emojiReactions[Math.floor(Math.random() * emojiReactions.length)];
 
-// Load Media DB
-let mediaDb = {};
-try {
-  if (fs.existsSync("./media/media.json")) {
-    mediaDb = JSON.parse(fs.readFileSync("./media/media.json", "utf-8"));
-  } else {
-    console.warn("⚠️ media.json not found.");
-  }
-} catch (err) {
-  console.error("❌ Error loading media.json:", err);
-}
+const mediaDbPath = "./media/media.json";
+const mediaDb = fs.existsSync(mediaDbPath)
+  ? JSON.parse(fs.readFileSync(mediaDbPath, "utf-8"))
+  : {};
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState("./auth");
@@ -54,23 +46,19 @@ async function startBot() {
     logger: P({ level: "silent" })
   });
 
-  // 🔁 Auto Reconnect
+  sock.ev.on("creds.update", saveCreds);
+
   sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
     if (connection === "close") {
       const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
       if (shouldReconnect) startBot();
     } else if (connection === "open") {
       console.log("✅ Bot connected!");
-      const menu = `🤖 BEN WHITTAKER TECH BOT is online!
-👑 Owner: @${OWNER_JID.split("@")[0]}
-📌 Prefix: ${PREFIX}`;
+      const menu = `🤖 BEN WHITTAKER TECH BOT is online!\n👑 Owner: @${OWNER_JID.split("@")[0]}\n📌 Prefix: ${PREFIX}`;
       await sock.sendMessage(OWNER_JID, { text: menu });
     }
   });
 
-  sock.ev.on("creds.update", saveCreds);
-
-  // 📁 Load Commands
   const commands = new Map();
   const commandsPath = path.join(__dirname, "commands");
   if (fs.existsSync(commandsPath)) {
@@ -80,10 +68,9 @@ async function startBot() {
     }
   } else {
     fs.mkdirSync(commandsPath);
-    console.log("📁 Created 'commands' folder.");
+    console.log("📁 Created commands folder.");
   }
 
-  // 💬 Message Handler
   sock.ev.on("messages.upsert", async ({ messages }) => {
     const msg = messages[0];
     if (!msg.message) return;
@@ -93,24 +80,26 @@ async function startBot() {
     const sender = msg.key.participant || msg.key.remoteJid;
     const body = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
 
-    // 📸 ViewOnce Bypass
+    // Auto open view once
     if (msg.message?.viewOnceMessageV2) {
       const viewOnce = msg.message.viewOnceMessageV2.message;
       const type = Object.keys(viewOnce)[0];
       const stream = await downloadContentFromMessage(viewOnce[type], type.includes("video") ? "video" : "image");
       let buffer = Buffer.from([]);
       for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-      await sock.sendMessage(from, { [type]: buffer, caption: "🔓 Opened view once" }, { quoted: msg });
+      await sock.sendMessage(from, { [type]: buffer, caption: `🔓 Opened view once` }, { quoted: msg });
     }
 
-    // 📢 Auto Read Status
-    if (from === "status@broadcast") await sock.readMessages([msg.key]);
+    // Auto view status
+    if (from === "status@broadcast") {
+      await sock.readMessages([msg.key]);
+    }
 
-    // 🎙️ Fake Recording
+    // Fake recording
     await sock.sendPresenceUpdate("recording", from);
     setTimeout(() => sock.sendPresenceUpdate("available", from), 3000);
 
-    // 🚫 Anti-Link Group Settings
+    // Anti-link control
     if (isGroup && body.toLowerCase().startsWith(PREFIX + "antlink")) {
       const args = body.trim().split(" ");
       const sub = args[1]?.toLowerCase();
@@ -132,7 +121,6 @@ async function startBot() {
       }
     }
 
-    // 🚨 Auto Remove or Warn
     if (isGroup && antiLinkGroups[from]?.enabled) {
       const linkRegex = /https?:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]{20,}/;
       const action = antiLinkGroups[from].action;
@@ -150,7 +138,7 @@ async function startBot() {
       }
     }
 
-    // 🎞️ GIF Command via media.json
+    // GIF command
     const gifMatch = Object.keys(mediaDb).find(key => body.toLowerCase().startsWith(PREFIX + key));
     if (gifMatch) {
       const gifData = mediaDb[gifMatch];
@@ -162,7 +150,7 @@ async function startBot() {
       return;
     }
 
-    // ⚙️ Built-in Commands
+    // Custom commands
     for (const [name, command] of commands) {
       if (body.toLowerCase().startsWith(PREFIX + name)) {
         const args = body.trim().split(/\s+/).slice(1);
@@ -174,6 +162,7 @@ async function startBot() {
         break;
       }
     }
+
   });
 }
 
