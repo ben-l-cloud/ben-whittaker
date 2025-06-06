@@ -33,10 +33,12 @@ module.exports = {
     const hadith = hadiths[Math.floor(Math.random() * hadiths.length)];
 
     const message = 
-      `🕌 *Hadith*\n\n`+
-      `📜 ${hadith.text}\n\n`+
-      `*Source:* ${hadith.source}\n`+
-      `*Grade:* ${hadith.grade}\n\n`+
+      `🕌 *Hadith*\n\n` +
+      `📜 ${hadith.text}\n\n` +
+      `*Source:* ${hadith.source}\n` +
+      `*Grade:* ${hadith.grade}\n\n` +
       `_© Ben Whittaker Tech_`;
 
-    await sock.sendMessage(jid, { text: message
+    await sock.sendMessage(jid, { text: message });
+  }
+};
