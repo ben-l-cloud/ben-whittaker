@@ -1,23 +1,71 @@
-module.exports = {
-  name: "remove",
-  description: "❌ Kick a member from the group",
-  async execute(sock, msg, args) {
-    const jid = msg.key.remoteJid;
-    const sender = msg.key.participant || msg.key.remoteJid;
-    await sock.sendMessage(jid, { text: "🕐 Removing member..." });
-    try {
-      if (!msg.message.extendedTextMessage || !msg.message.extendedTextMessage.contextInfo.mentionedJid) {
-        return await sock.sendMessage(jid, { text: "❌ Please tag a member to remove." });
-      }
-      const metadata = await sock.groupMetadata(jid);
-      const admins = metadata.participants.filter(p => p.admin !== null).map(p => p.id);
-      if (!admins.includes(sender)) return await sock.sendMessage(jid, { text: "❌ Only admins can remove members." });
+const fs = require('fs');
+const antilinkFile = './antilink.json';
 
-      const userToRemove = msg.message.extendedTextMessage.contextInfo.mentionedJid[0];
-      await sock.groupParticipantsUpdate(jid, [userToRemove], "remove");
-      await sock.sendMessage(jid, { text: `✅ Removed @${userToRemove.split("@")[0]} from the group.`, mentions: [userToRemove] });
-    } catch (error) {
-      await sock.sendMessage(jid, { text: `❌ Failed to remove member.\n${error.message}` });
+module.exports = {
+  name: "antilink",
+  description: "🚫 Auto kick users who send WhatsApp group links",
+  async execute(sock, msg) {
+    const jid = msg.key.remoteJid;
+    const sender = msg.participant || msg.key.participant;
+    
+    // Only works in groups
+    if (!jid.endsWith('@g.us')) return;
+
+    const group = await sock.groupMetadata(jid);
+    const admins = group.participants.filter(p => p.admin).map(p => p.id);
+    const isAdmin = admins.includes(sender);
+    const isBotAdmin = admins.includes(sock.user.id.split(":")[0] + "@s.whatsapp.net");
+
+    // Do nothing if sender is admin
+    if (isAdmin) return;
+
+    // Check if antilink is enabled for this group
+    let antilinkSettings = {};
+    if (fs.existsSync(antilinkFile)) {
+      antilinkSettings = JSON.parse(fs.readFileSync(antilinkFile));
+    }
+
+    if (!antilinkSettings[jid] || antilinkSettings[jid] !== "on") return;
+
+    const messageText = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
+
+    // Detect WhatsApp group invite link patterns
+    const linkPattern = /(https?:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]+)/i;
+    if (linkPattern.test(messageText)) {
+      if (!isBotAdmin) {
+        await sock.sendMessage(jid, { text: "🤖 I am not admin, cannot remove members." });
+        return;
+      }
+
+      // Kick the user who sent the link
+      await sock.groupParticipantsUpdate(jid, [sender], "remove");
+      await sock.sendMessage(jid, { text: `🚫 Removed @${sender.split("@")[0]} for sending group invite link!`, mentions: [sender] });
     }
   },
+
+  // Command to toggle antilink on/off
+  toggle: async function(sock, msg, args) {
+    const jid = msg.key.remoteJid;
+    const sender = msg.participant || msg.key.participant;
+
+    const group = await sock.groupMetadata(jid);
+    const admins = group.participants.filter(p => p.admin).map(p => p.id);
+    const isAdmin = admins.includes(sender);
+
+    if (!isAdmin) return sock.sendMessage(jid, { text: "⛔ Only admins can toggle antilink." });
+
+    let antilinkSettings = {};
+    if (fs.existsSync(antilinkFile)) {
+      antilinkSettings = JSON.parse(fs.readFileSync(antilinkFile));
+    }
+
+    const arg = args[0]?.toLowerCase();
+    if (arg !== "on" && arg !== "off") {
+      return sock.sendMessage(jid, { text: "Usage: !antilink on/off" });
+    }
+
+    antilinkSettings[jid] = arg;
+    fs.writeFileSync(antilinkFile, JSON.stringify(antilinkSettings, null, 2));
+    await sock.sendMessage(jid, { text: `✅ Antilink is now *${arg.toUpperCase()}* in this group.` });
+  }
 };
