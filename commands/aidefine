@@ -1,0 +1,27 @@
+const axios = require('axios');
+
+module.exports = {
+  name: 'aidefine',
+  description: 'Elezea maana ya neno kwa kutumia AI',
+  async execute(sock, m, args) {
+    const from = m.key.remoteJid;
+    if (!args.length) return sock.sendMessage(from, { text: '💡 Tuma neno unalotaka maana yake, mfano: !aidefine technology' });
+
+    const word = args.join(" ");
+
+    await sock.sendMessage(from, { text: '⏳ Natafuta maana...' });
+
+    try {
+      const prompt = `Explain the meaning of the word "${word}" briefly and simply.`;
+
+      const res = await axios.post('https://chatgpt-api.shn.hk/v1/', {
+        messages: [{ role: "user", content: prompt }]
+      });
+
+      const definition = res.data.choices[0].message.content;
+      await sock.sendMessage(from, { text: '📖 Maana:\n' + definition.trim() });
+    } catch (err) {
+      await sock.sendMessage(from, { text: '❌ Samahani, sikupata maana ya neno.' });
+    }
+  }
+};
