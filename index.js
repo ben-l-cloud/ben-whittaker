@@ -126,68 +126,85 @@ async function startBot() {
       await sock.readMessages([msg.key]);
     }
 
+if (settings.autoAI && !commandUsed) {
+  const aiRes = await fetchChatGPT(msgText);
+  if (aiRes) return sock.sendMessage(jid, { text: aiRes }, { quoted: m });
+}
+    
     // Fake recording presence (typing indicator)
     await sock.sendPresenceUpdate("recording", from).catch(() => {});
     setTimeout(() => {
       sock.sendPresenceUpdate("available", from).catch(() => {});
     }, 3000);
 
-    // Anti-link feature management in groups
-    if (isGroup && body.toLowerCase().startsWith(PREFIX + "antlink")) {
-      const args = body.trim().split(" ");
-      const sub = args[1]?.toLowerCase();
-      const option = args[2]?.toLowerCase();
-      antiLinkGroups[from] = antiLinkGroups[from] || { enabled: false, action: "remove" };
+// Anti-Link Config Store
+const antiLinkGroups = {}; // { [groupJid]: { enabled: true, action: "remove", warns: { [jid]: count } } }
 
-      if (sub === "on") {
-        antiLinkGroups[from].enabled = true;
-        await sock.sendMessage(from, { text: "✅ Anti-Link is now *ON*." });
-      } else if (sub === "off") {
-        antiLinkGroups[from].enabled = false;
-        await sock.sendMessage(from, { text: "❌ Anti-Link is now *OFF*." });
-      } else if (sub === "action" && ["remove", "warn"].includes(option)) {
-        antiLinkGroups[from].action = option;
-        await sock.sendMessage(from, { text: `⚙️ Action set to *${option}*` });
-      } else {
-        await sock.sendMessage(from, {
-          text: `🛡️ Use:\n${PREFIX}antlink on\n${PREFIX}antlink off\n${PREFIX}antlink action remove|warn`,
-        });
-      }
-      return; // avoid further processing on this message
+// Anti-Link Command Handling
+if (isGroup && body.toLowerCase().startsWith(PREFIX + "antlink")) {
+  const args = body.trim().split(" ");
+  const sub = args[1]?.toLowerCase();
+  const option = args[2]?.toLowerCase();
+  antiLinkGroups[from] = antiLinkGroups[from] || { enabled: false, action: "remove", warns: {} };
+
+  if (sub === "on") {
+    antiLinkGroups[from].enabled = true;
+    antiLinkGroups[from].warns = {}; // reset warns
+    await sock.sendMessage(from, { text: "✅ Anti-Link is now *ON*." });
+  } else if (sub === "off") {
+    antiLinkGroups[from].enabled = false;
+    antiLinkGroups[from].warns = {};
+    await sock.sendMessage(from, { text: "❌ Anti-Link is now *OFF*." });
+  } else if (sub === "action" && ["remove", "warn"].includes(option)) {
+    antiLinkGroups[from].action = option;
+    await sock.sendMessage(from, { text: `⚙️ Action set to *${option}*` });
+  } else {
+    await sock.sendMessage(from, {
+      text: `🛡️ Use:\n${PREFIX}antlink on\n${PREFIX}antlink off\n${PREFIX}antlink action remove|warn`,
+    });
+  }
+  return;
+}
+
+// Anti-Link Enforcement
+if (isGroup && antiLinkGroups[from]?.enabled) {
+  const linkRegex = /(https?:\/\/)?(chat\.whatsapp\.com|t\.me|discord\.gg|instagram\.com|youtube\.com|facebook\.com|tiktok\.com)/i;
+  const action = antiLinkGroups[from].action;
+  const offender = sender;
+  const metadata = await sock.groupMetadata(from);
+  const botNumber = sock.user.id.split(":")[0] + "@s.whatsapp.net";
+  const botAdmin = metadata.participants.find(p => p.id === botNumber)?.admin;
+  const isAdmin = metadata.participants.find(p => p.id === offender)?.admin;
+
+  if (linkRegex.test(body) && offender !== OWNER_JID && !isAdmin) {
+    if (!botAdmin) {
+      await sock.sendMessage(from, { text: "⚠️ I'm not admin, I can't enforce anti-link." });
+      return;
     }
 
-    // Enforce Anti-link if enabled
-    if (isGroup && antiLinkGroups[from]?.enabled) {
-      const linkRegex = /https?:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]{20,}/;
-      const action = antiLinkGroups[from].action;
-      if (linkRegex.test(body) && sender !== OWNER_JID) {
-        try {
-          const metadata = await sock.groupMetadata(from);
-          const botNumber = sock.user.id.split(":")[0] + "@s.whatsapp.net";
-          const botAdmin = metadata.participants.find((p) => p.id === botNumber)?.admin;
-          if (!botAdmin) {
-            await sock.sendMessage(from, { text: "⚠️ I'm not admin." });
-            return;
-          }
-          if (action === "warn") {
-            await sock.sendMessage(from, {
-              text: `⚠️ *@${sender.split("@")[0]}* no link sharing!`,
-              mentions: [sender],
-            });
-          } else if (action === "remove") {
-            await sock.sendMessage(from, {
-              text: `🚫 Removed *@${sender.split("@")[0]}*`,
-              mentions: [sender],
-            });
-            await sock.groupParticipantsUpdate(from, [sender], "remove");
-          }
-        } catch (err) {
-          console.error("❌ Error handling anti-link:", err);
-        }
-        return;
+    antiLinkGroups[from].warns[offender] = (antiLinkGroups[from].warns[offender] || 0) + 1;
+    const warnings = antiLinkGroups[from].warns[offender];
+
+    if (warnings < 4) {
+      await sock.sendMessage(from, {
+        text: `⚠️ *@${offender.split("@")[0]}*, you shared a link.\n🚫 This is warning ${warnings}/3.`,
+        mentions: [offender],
+      });
+    } else {
+      await sock.sendMessage(from, {
+        text: `❌ *@${offender.split("@")[0]}* has been removed for repeated link sharing.`,
+        mentions: [offender],
+      });
+      try {
+        await sock.groupParticipantsUpdate(from, [offender], "remove");
+        delete antiLinkGroups[from].warns[offender]; // reset warning count after kick
+      } catch (err) {kill
+        console.error("Remove error:", err);
+        await sock.sendMessage(from, { text: "❌ Failed to remove user. Check my admin rights." });
       }
     }
-
+  }
+}
     // GIF command via mediaDb
     const gifMatch = Object.keys(mediaDb).find((key) =>
       body.toLowerCase().startsWith(PREFIX + key.toLowerCase())
