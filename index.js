@@ -121,15 +121,17 @@ async function startBot() {
       }
     }
 
-    // Auto-read status messages
-    if (from === "status@broadcast") {
-      await sock.readMessages([msg.key]);
-    }
-
-if (settings.autoAI && !commandUsed) {
-  const aiRes = await fetchChatGPT(msgText);
-  if (aiRes) return sock.sendMessage(jid, { text: aiRes }, { quoted: m });
+    // Auto-read and react to status messages
+if (from === "status@broadcast") {
+  await sock.readMessages([msg.key]);
+  await sock.sendMessage(from, {
+    react: {
+      text: "🤧", // emoji reaction
+      key: msg.key,
+    },
+  });
 }
+
     
     // Fake recording presence (typing indicator)
     await sock.sendPresenceUpdate("recording", from).catch(() => {});
