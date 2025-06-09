@@ -1,43 +1,46 @@
-let antideleteStatus = {}; // { 'groupJid': true/false }
+let antideleteStatus = {};
 
 module.exports = {
   name: "antidelete",
-  description: "♻️ Enable or disable anti-delete in group",
+  description: "🛡️ Enable or disable anti-delete system",
   async execute(sock, msg, args) {
     const jid = msg.key.remoteJid;
-    const isGroup = jid.endsWith("@g.us");
-    if (!isGroup) return sock.sendMessage(jid, { text: "❌ This command can only be used in groups." });
-
-    const sender = msg.key.participant || msg.key.remoteJid;
     const metadata = await sock.groupMetadata(jid);
-    const isAdmin = metadata.participants.find(p => p.id === sender && p.admin !== null);
-    if (!isAdmin) return sock.sendMessage(jid, { text: "❌ Only group admins can toggle anti-delete." });
+    const sender = msg.key.participant;
+    const isAdmin = metadata.participants.some(p => p.id === sender && p.admin);
+
+    if (!isAdmin) return sock.sendMessage(jid, { text: "❌ Only admins can enable or disable anti-delete." });
 
     const status = args[0]?.toLowerCase();
     if (!["on", "off"].includes(status)) {
-      return sock.sendMessage(jid, { text: `⚙️ Usage: *!antidelete on* or *!antidelete off*\nCurrently: *${antideleteStatus[jid] ? "ON" : "OFF"}*` });
+      return sock.sendMessage(jid, {
+        text: `Usage: *!antidelete on/off*\nCurrent: ${antideleteStatus[jid] ? "ON" : "OFF"}`
+      });
     }
 
     antideleteStatus[jid] = status === "on";
-    return sock.sendMessage(jid, { text: `✅ Anti-delete has been turned *${status.toUpperCase()}*.` });
+    await sock.sendMessage(jid, { text: `✅ Anti-delete is now *${status.toUpperCase()}*.` });
   },
 
   runEvent(sock) {
-    sock.ev.on("messages.delete", async (del) => {
-      const { remoteJid, messages } = del;
-      const msg = messages[0];
-      if (!msg || !msg.message || msg.key.fromMe) return;
+    sock.ev.on("messages.delete", async ({ messages }) => {
+      for (const msg of messages) {
+        const jid = msg.key.remoteJid;
+        if (!antideleteStatus[jid] || !msg.message || !jid.endsWith("@g.us")) continue;
 
-      if (!antideleteStatus[remoteJid]) return;
+        const participant = msg.key.participant || msg.participant || msg.key.remoteJid;
+        const deletedMessage = msg.message?.conversation ||
+          msg.message?.extendedTextMessage?.text ||
+          (msg.message?.imageMessage ? "[Image]" :
+           msg.message?.videoMessage ? "[Video]" :
+           msg.message?.documentMessage ? "[Document]" :
+           msg.message?.audioMessage ? "[Audio]" : "⚠️ Media Message");
 
-      const sender = msg.key.participant || msg.key.remoteJid;
-      if (remoteJid.endsWith("@g.us")) {
-        await sock.sendMessage(remoteJid, {
-          text: `♻️ Message deleted by @${sender.split("@")[0]}:\n\n*Recovered below 👇*`,
-          mentions: [sender],
+        await sock.sendMessage(jid, {
+          text: `🚨 *CYBER-MD ALERT: MESSAGE DELETED*\n👤 @${participant.split("@")[0]} deleted:\n\n💬 ${deletedMessage}`,
+          mentions: [participant]
         });
-        await sock.sendMessage(remoteJid, { forward: msg });
       }
     });
-  },
+  }
 };
