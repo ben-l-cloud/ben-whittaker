@@ -1,6 +1,14 @@
 {
   "kick": {
     "url": "https://github.com/ben-l-cloud/ben-whittaker/raw/09565213ec5830eca2fb36d5f8e31e1efa640c98/media/kick.mp4",
-    "caption": "╭───❖「 *🦵 KUTIMULIWA* 」❖───╮\n│ 👢 *Mtumiaji ametimuliwa rasmi!*\n│ 🎬 *Tazama mguu wa haki ukifanya kazi!*\n│ 🔥 *Ben Whittaker Tech inatawala!*\n╰────────────❖────────────╯"
+    "caption": "🦵 Mtumiaji ametimuliwa!"
+  },
+  "slap": {
+    "url": "https://github.com/ben-l-cloud/ben-whittaker/raw/12b8946af7e9329d91ee7b1d74a16722a56207b2/media/slap.mp4",
+    "caption": "🤚 Haki imetendeka kwa kofi!"
+  },
+  "kill": {
+    "url": "https://github.com/ben-l-cloud/ben-whittaker/raw/12b8946af7e9329d91ee7b1d74a16722a56207b2/media/kill.mp4",
+    "caption": "💀 Mhasimu ametolewa kafara!"
   }
 }
