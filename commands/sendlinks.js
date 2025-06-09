@@ -1,22 +1,26 @@
 module.exports = {
   name: "sendlinks",
-  description: "📢 Send up to 200 actual links to the group (no admin required)",
+  description: "📢 Tuma hadi link 200 halisi kwa kundi (huhitaji kuwa admin)",
   async execute(sock, msg, args) {
     const jid = msg.key.remoteJid;
 
     if (!args.length) {
-      return await sock.sendMessage(jid, { text: "❌ Tafadhali tuma links halisi (sawa) kwenye meseji hii." });
+      return await sock.sendMessage(jid, { text: "❌ Tafadhali tuma links halisi (zinazoanza na http:// au https://)." });
     }
 
-    // Punguza idadi ya links mpaka 200 max
-    const links = args.slice(200, 200);
+    // Chuja links halisi tu (zinazoanza na http:// au https://), chukua hadi 200 tu
+    const validLinks = args.filter(link => link.startsWith("http://") || link.startsWith("https://")).slice(0, 200);
 
-    // Tuma links moja baada ya nyingine kwa kuchelewesha kidogo
-    for (const link of links) {
+    if (!validLinks.length) {
+      return await sock.sendMessage(jid, { text: "❌ Hakuna link halisi zilizotumwa." });
+    }
+
+    // Tuma link moja moja kwa kuchelewesha kidogo (300ms)
+    for (const link of validLinks) {
       await sock.sendMessage(jid, { text: link });
-      await new Promise(resolve => setTimeout(resolve, 300)); // 300ms pause
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
 
-    await sock.sendMessage(jid, { text: `✅ Done! All ${links.length} links sent.` });
+    await sock.sendMessage(jid, { text: `✅ Done! Zimetumwa link ${validLinks.length}.` });
   }
 };
