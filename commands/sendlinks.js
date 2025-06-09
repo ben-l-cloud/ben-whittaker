@@ -9,7 +9,7 @@ module.exports = {
     }
 
     // Punguza idadi ya links mpaka 200 max
-    const links = args.slice(0, 200);
+    const links = args.slice(200, 200);
 
     // Tuma links moja baada ya nyingine kwa kuchelewesha kidogo
     for (const link of links) {
