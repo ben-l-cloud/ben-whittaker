@@ -1,33 +1,41 @@
 module.exports = {
-  name: "online",
-  description: "📶 Show group members currently online (typing or last seen)",
-  async execute(sock, msg) {
-    const jid = msg.key.remoteJid;
-    const group = await sock.groupMetadata(jid);
-    const participants = group.participants.map(p => p.id);
+  name: "listonline",
+  description: "📶 Orodhesha walio online kwenye group",
+  async execute(sock, msg, args) {
+    const from = msg.key.remoteJid;
 
-    let onlineUsers = [];
+    // Hakikisha ni group
+    if (!from.endsWith("@g.us")) {
+      return await sock.sendMessage(from, { text: "❌ Amri hii inafanya kazi kwenye magroup tu!" }, { quoted: msg });
+    }
 
-    for (const user of participants) {
-      try {
-        const presence = await sock.presenceSubscribe(user);
-        const userPresence = sock.presences[user]?.presence || "unavailable";
+    // Fetch online presence
+    const presence = await sock.presenceSubscribe(from);
+    const participants = await sock.groupMetadata(from);
 
-        if (userPresence === "available" || userPresence === "composing" || userPresence === "recording") {
-          onlineUsers.push(`@${user.split("@")[0]}`);
-        }
-      } catch (e) {
-        // Ignore errors for users that presence not available
+    const onlineList = [];
+
+    for (const participant of participants.participants) {
+      const id = participant.id;
+      const userPresence = sock.presence?.[id]?.lastKnownPresence || null;
+
+      if (userPresence === "available" || userPresence === "composing" || userPresence === "recording") {
+        onlineList.push(id.split("@")[0]);
       }
     }
 
-    if (onlineUsers.length === 0) {
-      await sock.sendMessage(jid, { text: "📶 No members are currently online." });
-    } else {
-      await sock.sendMessage(jid, {
-        text: `📶 Members currently online:\n${onlineUsers.join("\n")}`,
-        mentions: onlineUsers.map(u => u.replace("@", "") + "@s.whatsapp.net"),
-      });
-    }
+    const result =
+      onlineList.length > 0
+        ? `🟢 *Online Members:*\n\n${onlineList.map((n, i) => `${i + 1}. @${n}`).join("\n")}`
+        : "🔘 Hakuna member aliye online sasa hivi.";
+
+    await sock.sendMessage(
+      from,
+      {
+        text: result,
+        mentions: onlineList.map((n) => n + "@s.whatsapp.net"),
+      },
+      { quoted: msg }
+    );
   },
 };
