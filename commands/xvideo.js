@@ -1,45 +1,59 @@
-const axios = require("axios");
-const cheerio = require("cheerio");
+const puppeteer = require('puppeteer');
 
 module.exports = {
   name: "xvideo",
-  description: "🔞 Search Xvideos and return thumbnails only",
+  description: "🔞 Search and get Xvideos direct video",
   async execute(sock, msg, args) {
-    await sock.sendMessage(msg.key.remoteJid, {
-      react: {
-        text: "🔞",
-        key: msg.key,
-      },
-    });
+    const from = msg.key.remoteJid;
 
     if (!args.length) {
-      return sock.sendMessage(msg.key.remoteJid, { text: "Please enter a search keyword. Example: school girl" });
+      return sock.sendMessage(from, { text: "❗Tafadhali andika kitu cha kutafuta. Mfano: !xvideo school girl" }, { quoted: msg });
     }
 
     const query = args.join(" ");
-    const res = await axios.get(`https://www.xvideos.com/?k=${encodeURIComponent(query)}`);
-    const $ = cheerio.load(res.data);
-    const results = [];
+    const searchUrl = `https://www.xvideos.com/?k=${encodeURIComponent(query)}`;
 
-    $("div.thumb-block").each((i, el) => {
-      if (i >= 5) return false; // Limit to 5 results
-      
-      // Find thumbnail image url
-      let thumb = $(el).find("img").attr("data-src") || $(el).find("img").attr("src");
-      
-      // Some images might have "//..." url, add https:
-      if (thumb && thumb.startsWith("//")) thumb = "https:" + thumb;
+    await sock.sendMessage(from, { react: { text: "🔍", key: msg.key } });
 
-      if (thumb) results.push(thumb);
-    });
+    try {
+      const browser = await puppeteer.launch({ headless: "new" });
+      const page = await browser.newPage();
+      await page.goto(searchUrl, { waitUntil: 'networkidle2' });
 
-    if (!results.length) {
-      return sock.sendMessage(msg.key.remoteJid, { text: "No results found." });
+      // pata link ya kwanza ya video
+      const videoPageUrl = await page.evaluate(() => {
+        const el = document.querySelector('.thumb-block .thumb a');
+        return el ? el.href : null;
+      });
+
+      if (!videoPageUrl) {
+        await browser.close();
+        return sock.sendMessage(from, { text: "😢 Hakuna matokeo yaliyopatikana." }, { quoted: msg });
+      }
+
+      await page.goto(videoPageUrl, { waitUntil: 'networkidle2' });
+
+      // pata direct video URL
+      const videoUrl = await page.evaluate(() => {
+        const el = document.querySelector('video > source');
+        return el ? el.src : null;
+      });
+
+      const title = await page.title();
+      await browser.close();
+
+      if (!videoUrl) {
+        return sock.sendMessage(from, { text: "😔 Video URL haikupatikana." }, { quoted: msg });
+      }
+
+      await sock.sendMessage(from, {
+        video: { url: videoUrl },
+        caption: `🎬 ${title}`
+      }, { quoted: msg });
+
+    } catch (err) {
+      console.error("Xvideos error:", err);
+      await sock.sendMessage(from, { text: "🚫 Tatizo limetokea wakati wa kuchukua video." }, { quoted: msg });
     }
-
-    // Send images one by one as media messages
-    for (const imageUrl of results) {
-      await sock.sendMessage(msg.key.remoteJid, { image: { url: imageUrl }, caption: "🔞 Xvideos thumbnail" });
-    }
-  },
+  }
 };
