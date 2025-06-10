@@ -1,6 +1,6 @@
 {
   name: "blush",
-  description: "😊 Send a blushing GIF",
+  description: "😊 Send a blush GIF",
   async execute(sock, msg) {
     const res = await axios.get(`https://tenor.googleapis.com/v2/search?q=blush&key=AIzaSyCIDY_QAXl2ZKdJt45aakaTINvJY_YpefM&limit=1`);
     const gifUrl = res.data.results[0]?.media_formats?.gif?.url;
