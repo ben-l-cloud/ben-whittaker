@@ -8,3 +8,4 @@ module.exports = {
     const gifUrl = res.data.results[0]?.media_formats?.gif?.url;
     await sock.sendMessage(msg.key.remoteJid, { video: { url: gifUrl }, gifPlayback: true, caption: "😂 That was funny!" });
   },
+};
