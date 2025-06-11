@@ -94,7 +94,7 @@ async function startBot() {
 
   sock.ev.on("messages.upsert", async ({ messages }) => {
     const msg = messages[0];
-    if (!msg.message || msg.key.fromMe) return; // ignore own messages and empty
+  //  if (!msg.message || msg.key.fromMe) return; // ignore own messages and empty
 
     const from = msg.key.remoteJid;
     const isGroup = from.endsWith("@g.us");
