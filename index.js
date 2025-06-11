@@ -27,6 +27,25 @@ const {
   downloadContentFromMessage,
 } = require("@whiskeysockets/baileys");
 
+// Env Configs
+const OWNER_NUMBER = process.env.OWNER_NUMBER;
+const OWNER_JID = OWNER_NUMBER + "@s.whatsapp.net";
+const PREFIX = "!";
+const AUTO_BIO = true;
+const AUTO_VIEW_ONCE = process.env.AUTO_VIEW_ONCE === "on";
+const ANTILINK_ENABLED = process.env.ANTILINK === "on";
+const AUTO_TYPING = process.env.AUTO_TYPING === "on";
+const RECORD_VOICE_FAKE = process.env.RECORD_VOICE_FAKE === "on";
+const AUTO_VIEW_STATUS = process.env.AUTO_VIEW_STATUS === "on";
+const AUTO_REACT_EMOJI = process.env.AUTO_REACT_EMOJI || "";
+
+// Load Antilink settings
+let antiLinkGroups = {};
+try {
+  antiLinkGroups = JSON.parse(fs.readFileSync('./antilink.json'));
+} catch {
+  fs.writeFileSync('./antilink.json', '{}');
+}
 // Constants
 const OWNER_JID = "255654478605@s.whatsapp.net"; // Change to your number with country code + s.whatsapp.net
 const PREFIX = "😁";
