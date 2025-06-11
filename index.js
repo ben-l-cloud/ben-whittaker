@@ -100,10 +100,16 @@ async function startBot() {
     const isGroup = from.endsWith("@g.us");
     const sender = msg.key.participant || msg.key.remoteJid;
     const body =
-      msg.message.conversation ||
-      msg.message.extendedTextMessage?.text ||
-      "";
-
+  (msg.message && (
+    msg.message.conversation ||
+    msg.message.extendedTextMessage?.text ||
+    msg.message.imageMessage?.caption ||
+    msg.message.videoMessage?.caption ||
+    msg.message.stickerMessage?.caption ||
+    msg.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
+    msg.message.buttonsResponseMessage?.selectedButtonId
+  )) || "";
+    
     // View-once message opener (optional feature)
     if (msg.message?.viewOnceMessageV2) {
       try {
