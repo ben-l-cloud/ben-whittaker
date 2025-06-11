@@ -1,217 +1,82 @@
+const fs = require("fs");
 const os = require("os");
-const { performance } = require("perf_hooks");
+const moment = require("moment");
 
 module.exports = {
-  name: "menu",
-  description: "📜 Display all commands in style",
-  category: "general",
-  async execute(sock, msg, args, commands) {
-    const jid = msg.key.remoteJid;
-    const menuImage = "cyber.png";
+  nomCom: "menu",
+  categorie: "General",
+  reaction: "📜",
+  desc: "Onyesha menu kuu ya bot",
 
-    await sock.sendMessage(jid, { text: "🕐 *Loading Menu... Please wait...*" });
+  async execute(dest, zk, commandeOptions) {
+    const { ms, repondre } = commandeOptions;
 
-    const start = performance.now();
-    const hostname = os.hostname();
-    const platform = os.platform();
-    const ramUsed = ((os.totalmem() - os.freemem()) / 1024 / 1024).toFixed(1);
-    const speed = (performance.now() - start).toFixed(2);
-    const totalCommands = commands?.length || 250;
+    // Tarehe & saa
+    moment.tz.setDefault("Africa/Nairobi");
+    const date = moment().format("DD/MM/YYYY");
+    const time = moment().format("HH:mm:ss");
 
-    const text = `
-╭━━━〔 🤖 *CYBER-MS BOT MENU* 〕━━━◆
-│ 
-│ 🧠 *SYSTEM INFO*
-│ ─────────────────────
-│ 📦 Total Commands: *${totalCommands}*
-│ 💻 Platform: *${platform}*
-│ 🖥️ Hostname: *${hostname}*
-│ ⚡ Speed: *${speed} ms*
-│ 🧠 RAM Usage: *${ramUsed} MB*
-│ 
-╰━━━━━━━━━━━━━━━━━━━━━━━╯
+    // Set admin name, prefix, mode manually
+    const ADMIN_NAME = "CYBER";
+    const PREFIX = "😁";
+    const MODE = "private";
 
-╭──〔 🧰 TOOLS - 25 〕──────╮
-│ !ai
-│ !math
-│ !translate
-│ !qrcode
-│ !tts
-│ !voice
-│ !weather
-│ !timer
-│ !clock
-│ !calc
-│ !note
-│ !shorturl
-│ !whois
-│ !uuid
-│ !hash
-│ !text2img
-│ !urlscan
-│ !barcode
-│ !define
-│ !ocr
-│ !readmore
-│ !reminder
-│ !image2text
-│ !ipinfo
-│ !ping
-╰────────────────────────╯
+    // Orodha ya commands zako kwa mfano
+    const commands = [
+      { name: "menu", category: "General" },
+      { name: "ping", category: "General" },
+      { name: "sticker", category: "Media" },
+      { name: "ai", category: "AI" },
+      { name: "img", category: "AI" },
+      { name: "owner", category: "Admin" },
+      // ongeza zingine hapa...
+    ];
 
-╭──〔 👥 GROUP - 25 〕─────╮
-│ !add
-│ !kick
-│ !promote
-│ !demote
-│ !tagall
-│ !revoke
-│ !grouplink
-│ !mute
-│ !unmute
-│ !groupinfo
-│ !admin
-│ !leave
-│ !setdesc
-│ !setname
-│ !welcome
-│ !goodbye
-│ !antilink
-│ !antifake
-│ !antiviewonce
-│ !lock
-│ !unlock
-│ !block
-│ !unblock
-│ !warn
-│ !rules
-╰────────────────────────╯
+    // Pangilia commands kwa category
+    const groupedCommands = {};
+    for (const cmd of commands) {
+      if (!groupedCommands[cmd.category]) {
+        groupedCommands[cmd.category] = [];
+      }
+      groupedCommands[cmd.category].push(cmd.name);
+    }
 
-╭──〔 🛡️ SECURITY - 25 〕────╮
-│ !ban
-│ !unban
-│ !blocklist
-│ !scanadmin
-│ !checkadmin
-│ !antispam
-│ !antiviewonce
-│ !antiswear
-│ !report
-│ !warnlist
-│ !kickunknown
-│ !groupstatus
-│ !antiadmin
-│ !safemode
-│ !botguard
-│ !hidecmd
-│ !botstatus
-│ !whitelist
-│ !resetbot
-│ !privatemode
-│ !adminonly
-│ !auditlog
-│ !cleanbots
-│ !securitystatus
-│ !clearwarn
-╰────────────────────────╯
+    // Info ya juu
+    let infoMsg = `
+╭────《CYBER-MD 💻》────
+│❒ ADMIN: ${ADMIN_NAME}
+│❒ DATE: ${date}
+│❒ TIME: ${time}
+│❒ PREFIX: ${PREFIX}
+│❒ MODE: ${MODE}
+│❒ COMMANDS: ${commands.length}
+│❒ SPACE: ${(os.totalmem() - os.freemem()) / 1024 / 1024}MB free
+│❒ SYSTEM: ${os.platform()}
+╰───────────────────────\n`;
 
-╭──〔 🧰 UTILITIES - 25 〕────╮
-│ !serverinfo
-│ !uptime
-│ !ping
-│ !speedtest
-│ !status
-│ !iplookup
-│ !checktime
-│ !timezone
-│ !webinfo
-│ !urltitle
-│ !dnslookup
-│ !jsonformat
-│ !log
-│ !convert
-│ !base64
-│ !hex
-│ !binary
-│ !bmi
-│ !agecalc
-│ !emailcheck
-│ !httpcheck
-│ !sysinfo
-│ !storage
-│ !calendar
-│ !reminder
-╰────────────────────────╯
+    // Command menu
+    let menuMsg = `🧠 *CYBER-MD MAIN MENU*\n\n`;
 
-╭──〔 📚 EDUCATION -
-│ !dictionary
-│ !thesaurus
-│ !grammar
-│ !periodic
-│ !element
-│ !mathsolve
-│ !unitconvert
-│ !equation
-│ !wikipedia
-│ !encyclopedia
-│ !historytoday
-│ !sciencefact
-│ !readbook
-│ !story
-│ !timeline
-│ !nobel
-│ !inventor
-│ !synonym
-│ !antonym
-│ !quiz
-│ !test
-│ !exam
-│ !university
-│ !degree
-│ !career
-╰────────────────────────╯
+    for (const category in groupedCommands) {
+      menuMsg += `╭─── ${category.toUpperCase()} ───╮\n`;
+      for (const cmdName of groupedCommands[category]) {
+        menuMsg += `│ ➤ ${PREFIX}${cmdName}\n`;
+      }
+      menuMsg += `╰─────────────────╯\n\n`;
+    }
 
-╭──〔 🎖️ MILITARY - 25 〕────╮
-│ !armynews
-│ !weapons
-│ !rank
-│ !strategy
-│ !warhistory
-│ !militarytime
-│ !troops
-│ !forcecalc
-│ !intel
-│ !missions
-│ !sniper
-│ !airstrike
-│ !tank
-│ !navy
-│ !marine
-│ !defense
-│ !radar
-│ !attackplan
-│ !drone
-│ !airforce
-│ !militarybase
-│ !camouflage
-│ !commander
-│ !codeblack
-│ !survival
-╰────────────────────────╯
+    // Tuma image kama caption
+    try {
+      const imageBuffer = fs.readFileSync("./cyber.png");
+      await zk.sendMessage(dest, {
+        image: imageBuffer,
+        caption: infoMsg + menuMsg,
+        footer: "🤖 CYBER-MD Bot | Made with ❤️"
+      }, { quoted: ms });
 
-🖼️ Sending with banner image...
-`;
-
-    await sock.sendMessage(jid, {
-      image: { url: menuImage },
-      caption: text,
-      footer: "CYBER-MS BOT 💻",
-      buttons: [
-        { buttonId: "owner", buttonText: { displayText: "👑 Owner" }, type: 1 },
-        { buttonId: "support", buttonText: { displayText: "💬 Support" }, type: 1 },
-        { buttonId: "rules", buttonText: { displayText: "📜 Rules" }, type: 1 }
-      ],
-      headerType: 4,
-    });
-  },
+    } catch (error) {
+      console.error("Menu error:", error);
+      repondre("🥵 Imeshindikana kutuma menu: " + error.message);
+    }
+  }
 };
