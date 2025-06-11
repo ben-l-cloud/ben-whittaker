@@ -169,68 +169,40 @@ async function startBot() {
     setTimeout(() => {
       sock.sendPresenceUpdate("available", from).catch(() => {});
     }, 3000);
+if (ANTILINK_ENABLED && isGroup && antiLinkGroups[from]?.enabled) {
+  if (body.includes("https://chat.whatsapp.com")) {
+    if (!isAdmin && botIsAdmin) {
+      try {
+        // Delete the message
+        await sock.sendMessage(from, { delete: msg.key });
 
-    // Anti-link commands & logic
-    if (isGroup && body.startsWith(PREFIX + "antilink")) {
-      const args = body.trim().split(/\s+/);
-      const cmd = args[1];
-      antiLinkGroups[from] = antiLinkGroups[from] || { enabled: false, warns: {}, action: "remove" };
+        // Warn the user
+        await sock.sendMessage(from, {
+          text: `🚫 *Cyber-MD Detected Forbidden Link!*\n⚠️ @${sender.split("@")[0]}, you have been *warned* for posting a group invite link.\n\n*You will now be removed from the group.*`,
+          mentions: [sender]
+        });
 
-      if (cmd === "on") {
-        antiLinkGroups[from].enabled = true;
-        await sock.sendMessage(from, { text: "✅ Anti-Link activated!" });
-      } else if (cmd === "off") {
-        antiLinkGroups[from].enabled = false;
-        await sock.sendMessage(from, { text: "❌ Anti-Link deactivated." });
-      } else if (cmd === "action") {
-        const act = args[2];
-        if (["remove", "warn"].includes(act)) {
-          antiLinkGroups[from].action = act;
-          await sock.sendMessage(from, { text: `⚙️ Action set to *${act}*` });
-        } else {
-          await sock.sendMessage(from, { text: "⚠️ Use 'remove' or 'warn' only." });
-        }
-      } else {
-        await sock.sendMessage(from, { text: `Usage:\n${PREFIX}antilink on\n${PREFIX}antilink off\n${PREFIX}antilink action remove|warn` });
-      }
-      return;
-    }
+        // Wait 3 seconds
+        await new Promise(resolve => setTimeout(resolve, 3000));
 
-    if (isGroup && antiLinkGroups[from]?.enabled) {
-      const linkRegex = /(https?:\/\/)?(chat\.whatsapp\.com|t\.me|discord\.gg|facebook\.com|instagram\.com|youtube\.com|tiktok\.com)/i;
-      if (linkRegex.test(body)) {
-        const metadata = await sock.groupMetadata(from);
-        const isBotAdmin = metadata.participants.find(p => p.id === sock.user.id)?.admin;
-        const isUserAdmin = metadata.participants.find(p => p.id === sender)?.admin;
+        // Remove the user
+        await sock.groupParticipantsUpdate(from, [sender], "remove");
 
-        if (!isUserAdmin && isBotAdmin) {
-          const group = antiLinkGroups[from];
-          group.warns[sender] = (group.warns[sender] || 0) + 1;
-          const count = group.warns[sender];
+        // Confirm removal
+        await sock.sendMessage(from, {
+          text: `❌ @${sender.split("@")[0]} has been *removed* for sharing a forbidden link.\n_Cyber-MD secured your group._`,
+          mentions: [sender]
+        });
 
-          await sock.sendMessage(from, { react: { text: "⚠️", key: msg.key } });
-
-          if (group.action === "warn" || count < 3) {
-            await sock.sendMessage(from, {
-              text:
-                `╭───「 ⚠️ CYBER-MD DETECTED 」───╮\n` +
-                `│ 🚫 *Link Detected!*\n` +
-                `│ 👤 User: @${sender.split("@")[0]}\n` +
-                `│ ⚠️ Warn Count: ${count}/3\n` +
-                `╰──────────────────────────────╯`,
-              mentions: [sender],
-            });
-          } else {
-            await sock.sendMessage(from, {
-              text: `❌ *@${sender.split("@")[0]}* removed due to repeated link sharing.`,
-              mentions: [sender],
-            });
-            await sock.groupParticipantsUpdate(from, [sender], "remove");
-            delete group.warns[sender];
-          }
-        }
+      } catch (e) {
+        console.error("❌ Error handling antilink:", e);
+        await sock.sendMessage(from, {
+          text: `⚠️ Failed to remove user. Maybe I'm not admin.`,
+        });
       }
     }
+  }
+}
 
     // Anti-delete feature (repost deleted messages)
     sock.ev.on("messages.update", async (updates) => {
