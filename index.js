@@ -28,7 +28,8 @@ const {
 } = require("@whiskeysockets/baileys");
 
 // Env Configs
-const OWNER_NUMBER = process.env.OWNER_NUMBER;
+const OWNER_NUMBER = process.env.OWNER_NUMBER || "255654478605";
+const OWNER_JID = `${OWNER_NUMBER}@s.whatsapp.net`; // your number
 const AUTO_BIO = true;
 const AUTO_VIEW_ONCE = process.env.AUTO_VIEW_ONCE === "on";
 const ANTILINK_ENABLED = process.env.ANTILINK === "on";
@@ -37,20 +38,19 @@ const RECORD_VOICE_FAKE = process.env.RECORD_VOICE_FAKE === "on";
 const AUTO_VIEW_STATUS = process.env.AUTO_VIEW_STATUS === "on";
 const AUTO_REACT_EMOJI = process.env.AUTO_REACT_EMOJI || "";
 
-// Load Antilink settings
+// Prefix and emoji reactions
+const PREFIX = "😁";
+const emojiReactions = ["❤️", "😂", "🔥", "👍", "😎", "🤖"];
+const randomEmoji = () => emojiReactions[Math.floor(Math.random() * emojiReactions.length)];
+
+// Load Antilink settings safely
 let antiLinkGroups = {};
 try {
   antiLinkGroups = JSON.parse(fs.readFileSync('./antilink.json'));
 } catch {
+  antiLinkGroups = {};
   fs.writeFileSync('./antilink.json', '{}');
 }
-// Constants
-const OWNER_JID = "255654478605@s.whatsapp.net"; // Change to your number with country code + s.whatsapp.net
-const PREFIX = "😁";
-const emojiReactions = ["❤️", "😂", "🔥", "👍", "😎", "🤖"];
-
-// Helper function to get a random emoji
-const randomEmoji = () => emojiReactions[Math.floor(Math.random() * emojiReactions.length)];
 
 // Load media DB safely
 let mediaDb = {};
@@ -60,8 +60,8 @@ try {
   console.warn("⚠️ media.json not found or invalid. GIF commands will be disabled.");
 }
 
+// Start Bot Function
 async function startBot() {
-  // Load auth credentials and Baileys version
   const { state, saveCreds } = await useMultiFileAuthState("./auth");
   const { version } = await fetchLatestBaileysVersion();
 
@@ -94,7 +94,7 @@ async function startBot() {
     }
   });
 
-  // Commands map
+  // Load commands from commands folder if exist
   const commands = new Map();
   const commandsPath = path.join(__dirname, "commands");
   if (fs.existsSync(commandsPath)) {
@@ -106,28 +106,64 @@ async function startBot() {
     }
   }
 
-  // Anti-link config for groups
-  const antiLinkGroups = {};
+  // Anti-delete feature: OUTSIDE messages.upsert event
+  sock.ev.on("messages.update", async (updates) => {
+    for (const update of updates) {
+      // status === 6 means deleted message
+      if (update.update && update.update.status === 6 && update.key) {
+        try {
+          const originalMsg = await sock.loadMessage(update.key.remoteJid, update.key.id);
+          if (originalMsg && originalMsg.message) {
+            const senderNum = update.key.participant?.split("@")[0] || "unknown";
+            const msgType = Object.keys(originalMsg.message)[0];
+            const content = originalMsg.message[msgType];
 
+            const alertText = `🚨 *CYBER-MD ALERT!*\n🗑️ Message deleted by @${senderNum}\n🔁 Reposting deleted message:`;
+
+            await sock.sendMessage(update.key.remoteJid, {
+              text: alertText,
+              mentions: [update.key.participant]
+            });
+
+            await sock.sendMessage(update.key.remoteJid, { [msgType]: content });
+          }
+        } catch (err) {
+          console.error("❌ Anti-delete error:", err);
+        }
+      }
+    }
+  });
+
+  // Main messages handler
   sock.ev.on("messages.upsert", async ({ messages }) => {
     const msg = messages[0];
-  //  if (!msg.message || msg.key.fromMe) return; // ignore own messages and empty
+    if (!msg.message || msg.key.fromMe) return;
 
     const from = msg.key.remoteJid;
     const isGroup = from.endsWith("@g.us");
     const sender = msg.key.participant || msg.key.remoteJid;
+
+    // Extract message text
     const body =
-  (msg.message && (
-    msg.message.conversation ||
-    msg.message.extendedTextMessage?.text ||
-    msg.message.imageMessage?.caption ||
-    msg.message.videoMessage?.caption ||
-    msg.message.stickerMessage?.caption ||
-    msg.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
-    msg.message.buttonsResponseMessage?.selectedButtonId
-  )) || "";
-    
-    // View-once message opener (optional feature)
+      msg.message?.conversation ||
+      msg.message?.extendedTextMessage?.text ||
+      msg.message?.imageMessage?.caption ||
+      msg.message?.videoMessage?.caption ||
+      msg.message?.stickerMessage?.caption ||
+      msg.message?.buttonsResponseMessage?.selectedButtonId ||
+      msg.message?.listResponseMessage?.singleSelectReply?.selectedRowId ||
+      "";
+
+    // Get group metadata if group
+    let isAdmin = false, botIsAdmin = false;
+    if (isGroup) {
+      const metadata = await sock.groupMetadata(from);
+      const participants = metadata.participants;
+      isAdmin = participants.find(p => p.id === sender)?.admin !== undefined;
+      botIsAdmin = participants.find(p => p.id === sock.user.id)?.admin !== undefined;
+    }
+
+    // === View once message opener (optional) ===
     if (msg.message?.viewOnceMessageV2) {
       try {
         const viewOnce = msg.message.viewOnceMessageV2.message;
@@ -151,81 +187,62 @@ async function startBot() {
       }
     }
 
-    // Auto read and react to status messages
+    // === Auto read and react to status messages ===
     if (from === "status@broadcast") {
       await sock.readMessages([msg.key]);
-      await sock.sendMessage(from, {
-        react: {
-          text: "🤧",
-          key: msg.key,
-        },
-      });
-    }
-
-    // Fake typing presence
-    await sock.sendPresenceUpdate("recording", from).catch(() => {});
-    setTimeout(() => {
-      sock.sendPresenceUpdate("available", from).catch(() => {});
-    }, 3000);
-if (ANTILINK_ENABLED && isGroup && antiLinkGroups[from]?.enabled) {
-  if (body.includes("https://chat.whatsapp.com")) {
-    if (!isAdmin && botIsAdmin) {
-      try {
-        // Delete the message
-        await sock.sendMessage(from, { delete: msg.key });
-
-        // Warn the user
+      if (AUTO_REACT_EMOJI) {
         await sock.sendMessage(from, {
-          text: `🚫 *Cyber-MD Detected Forbidden Link!*\n⚠️ @${sender.split("@")[0]}, you have been *warned* for posting a group invite link.\n\n*You will now be removed from the group.*`,
-          mentions: [sender]
-        });
-
-        // Wait 3 seconds
-        await new Promise(resolve => setTimeout(resolve, 3000));
-
-        // Remove the user
-        await sock.groupParticipantsUpdate(from, [sender], "remove");
-
-        // Confirm removal
-        await sock.sendMessage(from, {
-          text: `❌ @${sender.split("@")[0]} has been *removed* for sharing a forbidden link.\n_Cyber-MD secured your group._`,
-          mentions: [sender]
-        });
-
-      } catch (e) {
-        console.error("❌ Error handling antilink:", e);
-        await sock.sendMessage(from, {
-          text: `⚠️ Failed to remove user. Maybe I'm not admin.`,
+          react: {
+            text: AUTO_REACT_EMOJI,
+            key: msg.key,
+          },
         });
       }
     }
-  }
-}
 
-    // Anti-delete feature (repost deleted messages)
-    sock.ev.on("messages.update", async (updates) => {
-      for (const update of updates) {
-        if (update.message === "CONTEXT-INFO: MESSAGE DELETED") {
+    // === Fake typing presence ===
+    if (AUTO_TYPING) {
+      await sock.sendPresenceUpdate("recording", from).catch(() => {});
+      setTimeout(() => {
+        sock.sendPresenceUpdate("available", from).catch(() => {});
+      }, 3000);
+    }
+
+    // === Antilink enforcement ===
+    if (ANTILINK_ENABLED && isGroup && antiLinkGroups[from]?.enabled) {
+      if (body.includes("https://chat.whatsapp.com")) {
+        if (!isAdmin && botIsAdmin) {
           try {
-            const originalMsg = await sock.loadMessage(update.key.remoteJid, update.key.id);
-            if (originalMsg && originalMsg.message) {
-              const senderNum = update.key.participant?.split("@")[0] || "unknown";
-              const msgType = Object.keys(originalMsg.message)[0];
-              const content = originalMsg.message[msgType];
-
-              const alertText = `🚨 *CYBER-MD ALERT!*\n🗑️ Message deleted by @${senderNum}\n🔁 Reposting deleted message:`;
-
-              await sock.sendMessage(update.key.remoteJid, { text: alertText, mentions: [update.key.participant] });
-              await sock.sendMessage(update.key.remoteJid, { [msgType]: content });
-            }
-          } catch (err) {
-            console.error("Anti-delete error:", err);
+            await sock.sendMessage(from, { delete: msg.key });
+            await sock.sendMessage(from, {
+              text: `🚫 *Cyber-MD Detected Forbidden Link!*\n⚠️ @${sender.split("@")[0]}, you have been *warned* and removed.`,
+              mentions: [sender],
+            });
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            await sock.groupParticipantsUpdate(from, [sender], "remove");
+          } catch (e) {
+            console.error("❌ Error handling antilink:", e);
+            await sock.sendMessage(from, { text: `⚠️ Failed to remove user. Maybe I'm not admin.` });
           }
         }
       }
-    });
+    }
 
-    // GIF commands from mediaDb
+    // === Antilink On/Off commands ===
+    if (body === `${PREFIX}antilink on` && isGroup && isAdmin) {
+      antiLinkGroups[from] = { enabled: true };
+      fs.writeFileSync("./antilink.json", JSON.stringify(antiLinkGroups, null, 2));
+      await sock.sendMessage(from, { text: `✅ Antilink imewashwa.` });
+      return;
+    }
+    if (body === `${PREFIX}antilink off` && isGroup && isAdmin) {
+      delete antiLinkGroups[from];
+      fs.writeFileSync("./antilink.json", JSON.stringify(antiLinkGroups, null, 2));
+      await sock.sendMessage(from, { text: `❌ Antilink imezimwa.` });
+      return;
+    }
+
+    // === GIF commands from mediaDb ===
     const gifMatch = Object.keys(mediaDb).find((key) =>
       body.toLowerCase().startsWith(PREFIX + key.toLowerCase())
     );
@@ -243,7 +260,7 @@ if (ANTILINK_ENABLED && isGroup && antiLinkGroups[from]?.enabled) {
       return;
     }
 
-    // Process commands from commands folder
+    // === Process commands from commands folder ===
     for (const [name, command] of commands) {
       if (body.toLowerCase().startsWith(PREFIX + name.toLowerCase())) {
         const args = body.trim().split(/\s+/).slice(1);
